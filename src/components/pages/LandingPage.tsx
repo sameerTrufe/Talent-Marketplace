@@ -32,7 +32,6 @@ import {
 } from "../ui/select";
 import { Badge } from "../ui/badge";
 
- 
 // --- Types ---
 interface Expert {
   id: string; 
