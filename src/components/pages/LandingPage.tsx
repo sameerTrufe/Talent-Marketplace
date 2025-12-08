@@ -129,7 +129,6 @@ const testimonials = [
 ];
 
 const platformSkills = ["Appian", "OutSystems", "Mendix", "Pega", "Power Apps"];
-
 // --- API Endpoint --- 
 const API_BASE_URL = import.meta.env.DEV 
   ? 'http://localhost:8080/api' 
@@ -174,6 +173,7 @@ const generateMockExperts = (searchTerm: string, technologies: string[]): Expert
 };
 
 export function LandingPage() {
+  const [techInput, setTechInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Expert[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -312,8 +312,175 @@ export function LandingPage() {
     }
   };
 
-  // --- Main Search Function --- 
-const handleSearch = async (useAdvancedFilters = false) => {
+  // --- NEW: Comma-separated AND Search Function ---
+ const handleCommaAndSearch = async () => {
+  setIsLoading(true);
+  setError(null);
+  setHasSearched(true);
+
+  try {
+    // Build search request object
+    const searchRequest: any = {
+      searchTerm: searchTerm.trim(),
+      page: 0,
+      size: 12,
+      searchType: "AND"
+    };
+
+    // Add technologies if selected
+    if (selectedTechnologies.length > 0) {
+      searchRequest.technologies = selectedTechnologies.join(',');
+    }
+
+    // Add other filters
+    if (domainExperience.trim()) {
+      searchRequest.domainExperience = domainExperience.trim();
+    }
+    if (city.trim()) {
+      searchRequest.city = city.trim();
+    }
+    if (country.trim()) {
+      searchRequest.country = country.trim();
+    }
+    if (region.trim()) {
+      searchRequest.region = region.trim();
+    }
+    if (minExperience !== '') {
+      searchRequest.minExperience = Number(minExperience);
+    }
+    if (maxExperience !== '') {
+      searchRequest.maxExperience = Number(maxExperience);
+    }
+
+    // Use the new comma-separated AND search endpoint
+    const response = await fetch(`${API_BASE_URL}/candidates/search/comma-and`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(searchRequest)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Search failed: ${response.status} - ${errorText}`);
+    }
+
+    const searchResponse = await response.json();
+    
+    // Handle response according to your SearchResponseDTO structure
+    const candidates = searchResponse.results?.content || [];
+    const normalizedExperts = candidates.map(normalizeCandidate);
+    
+    setSearchResults(normalizedExperts);
+    setSearchStats({
+      totalResults: searchResponse.metadata?.totalResults || 
+                    searchResponse.results?.totalElements || 0,
+      currentPage: searchResponse.metadata?.currentPage || 
+                   searchResponse.results?.number || 0,
+      totalPages: searchResponse.metadata?.totalPages || 
+                  searchResponse.results?.totalPages || 0
+    });
+
+    console.log("AND Search Results:", normalizedExperts.length, "candidates found");
+
+  } catch (err) {
+    console.error("Comma AND search error:", err);
+    
+    // Fallback to direct GET call
+    try {
+      // Try the simple GET endpoint
+      const params = new URLSearchParams();
+      if (searchTerm.trim()) {
+        params.append("q", searchTerm.trim());
+      }
+      if (selectedTechnologies.length > 0) {
+        params.append("technologies", selectedTechnologies.join(','));
+      }
+      
+      const fallbackResponse = await fetch(
+        `${API_BASE_URL}/candidates/search/comma-simple?${params.toString()}&page=0&size=12`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        }
+      );
+      
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json();
+        const candidates = fallbackData.content || fallbackData.results?.content || [];
+        const normalizedExperts = candidates.map(normalizeCandidate);
+        
+        setSearchResults(normalizedExperts);
+        setSearchStats({
+          totalResults: fallbackData.totalElements || fallbackData.results?.totalElements || 0,
+          currentPage: fallbackData.number || fallbackData.results?.number || 0,
+          totalPages: fallbackData.totalPages || fallbackData.results?.totalPages || 0
+        });
+        
+        setError(null); // Clear error since fallback worked
+        return;
+      }
+    } catch (fallbackErr) {
+      console.error("Fallback search also failed:", fallbackErr);
+    }
+    
+    // Final fallback to mock data with correct AND logic filtering
+    const mockExperts = generateMockExperts(searchTerm, selectedTechnologies);
+    
+    // Filter mock data to simulate AND logic
+    const filteredMockExperts = mockExperts.filter(expert => {
+      if (selectedTechnologies.length > 0) {
+        // Check if expert has ALL selected technologies (case-insensitive)
+        return selectedTechnologies.every(tech => 
+          expert.skills?.some(skill => 
+            skill.toLowerCase().includes(tech.toLowerCase()) ||
+            tech.toLowerCase().includes(skill.toLowerCase())
+          )
+        );
+      }
+      // If no technologies selected but search term has comma, filter by terms
+      if (searchTerm.includes(',')) {
+        const searchTerms = searchTerm.split(',').map(term => term.trim().toLowerCase());
+        return searchTerms.every(term => 
+          expert.name.toLowerCase().includes(term) ||
+          expert.role.toLowerCase().includes(term) ||
+          expert.skills?.some(skill => skill.toLowerCase().includes(term)) ||
+          expert.experience.toLowerCase().includes(term)
+        );
+      }
+      return true;
+    });
+    
+    setSearchResults(filteredMockExperts);
+    setSearchStats({
+      totalResults: filteredMockExperts.length,
+      currentPage: 0,
+      totalPages: 1
+    });
+    
+    setError("Backend search failed, showing filtered mock data. Error: " + (err instanceof Error ? err.message : 'Unknown error'));
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  // --- Main Search Function (Updated with AND logic detection) --- 
+  const handleSearch = async (useAdvancedFilters = false) => {
+  // Check if we should use comma-separated AND search
+  const shouldUseCommaAndSearch = 
+    (searchTerm.includes(',') && searchTerm.trim().length >= 2) || 
+    (selectedTechnologies.length > 1);
+  
+  if (shouldUseCommaAndSearch) {
+    // Use the new AND logic for comma-separated search
+    await handleCommaAndSearch();
+    return;
+  }
+
   const shouldUseAdvancedFilters = useAdvancedFilters || hasActiveAdvancedFilters();
 
   setIsLoading(true);
@@ -321,7 +488,7 @@ const handleSearch = async (useAdvancedFilters = false) => {
   setHasSearched(true);
 
   try {
-    // Build search parameters - SIMPLIFIED for testing
+    // Build search parameters
     const params = new URLSearchParams();
     
     // Add search term if provided
@@ -354,9 +521,8 @@ const handleSearch = async (useAdvancedFilters = false) => {
       }
     }
 
-    // If no search criteria at all, we might want to show all
+    // If no search criteria at all, show featured experts
     if (params.toString() === '') {
-      // Show featured experts or all candidates
       setSearchResults(featuredExperts);
       setSearchStats({
         totalResults: featuredExperts.length,
@@ -385,29 +551,44 @@ const handleSearch = async (useAdvancedFilters = false) => {
 
     const data = await response.json();
     
-    // Handle the response
-    if (data.content && Array.isArray(data.content)) {
-      const normalizedExperts = data.content.map(normalizeCandidate);
-      setSearchResults(normalizedExperts);
-      setSearchStats({
-        totalResults: data.totalElements || 0,
-        currentPage: data.number || 0,
-        totalPages: data.totalPages || 0
-      });
-    } else {
-      // No results found
-      setSearchResults([]);
-      setSearchStats({
-        totalResults: 0,
-        currentPage: 0,
-        totalPages: 0
-      });
+    // Handle response - adjust based on response structure
+    let candidates = [];
+    let totalResults = 0;
+    let currentPage = 0;
+    let totalPages = 0;
+    
+    if (data.results && Array.isArray(data.results.content)) {
+      // New structure with metadata
+      candidates = data.results.content;
+      totalResults = data.metadata?.totalResults || data.results.totalElements || 0;
+      currentPage = data.metadata?.currentPage || data.results.number || 0;
+      totalPages = data.metadata?.totalPages || data.results.totalPages || 0;
+    } else if (data.content && Array.isArray(data.content)) {
+      // Old Spring Data Page structure
+      candidates = data.content;
+      totalResults = data.totalElements || 0;
+      currentPage = data.number || 0;
+      totalPages = data.totalPages || 0;
+    } else if (Array.isArray(data)) {
+      // Array response
+      candidates = data;
+      totalResults = data.length;
+      currentPage = 0;
+      totalPages = 1;
     }
+    
+    const normalizedExperts = candidates.map(normalizeCandidate);
+    setSearchResults(normalizedExperts);
+    setSearchStats({
+      totalResults,
+      currentPage,
+      totalPages
+    });
 
   } catch (err) {
     console.error("Search error:", err);
     
-    // For development, show mock data
+    // Fallback to mock data
     const mockExperts = generateMockExperts(searchTerm, selectedTechnologies);
     setSearchResults(mockExperts);
     setSearchStats({
@@ -426,49 +607,49 @@ const handleSearch = async (useAdvancedFilters = false) => {
   }
 };
 
-// Add this helper function
-const handleSearchResponse = (data: any) => {
-  console.log("Search response:", data);
-  
-  // Handle the response - Spring Data Page format
-  if (data.content && Array.isArray(data.content)) {
-    const normalizedExperts = data.content.map(normalizeCandidate);
-    setSearchResults(normalizedExperts);
-    setSearchStats({
-      totalResults: data.totalElements || 0,
-      currentPage: data.number || 0,
-      totalPages: data.totalPages || 0
-    });
-  } 
-  // Handle array response
-  else if (Array.isArray(data)) {
-    const normalizedExperts = data.map(normalizeCandidate);
-    setSearchResults(normalizedExperts);
-    setSearchStats({
-      totalResults: normalizedExperts.length,
-      currentPage: 0,
-      totalPages: 1
-    });
-  }
-  // Handle custom response format
-  else if (data.results && Array.isArray(data.results)) {
-    const normalizedExperts = data.results.map(normalizeCandidate);
-    setSearchResults(normalizedExperts);
-    setSearchStats({
-      totalResults: data.total || data.totalElements || normalizedExperts.length,
-      currentPage: data.page || 0,
-      totalPages: data.totalPages || 1
-    });
-  } else {
-    // Fallback to empty results
-    setSearchResults([]);
-    setSearchStats({
-      totalResults: 0,
-      currentPage: 0,
-      totalPages: 0
-    });
-  }
-};
+  // Add this helper function
+  const handleSearchResponse = (data: any) => {
+    console.log("Search response:", data);
+    
+    // Handle the response - Spring Data Page format
+    if (data.content && Array.isArray(data.content)) {
+      const normalizedExperts = data.content.map(normalizeCandidate);
+      setSearchResults(normalizedExperts);
+      setSearchStats({
+        totalResults: data.totalElements || 0,
+        currentPage: data.number || 0,
+        totalPages: data.totalPages || 0
+      });
+    } 
+    // Handle array response
+    else if (Array.isArray(data)) {
+      const normalizedExperts = data.map(normalizeCandidate);
+      setSearchResults(normalizedExperts);
+      setSearchStats({
+        totalResults: normalizedExperts.length,
+        currentPage: 0,
+        totalPages: 1
+      });
+    }
+    // Handle custom response format
+    else if (data.results && Array.isArray(data.results)) {
+      const normalizedExperts = data.results.map(normalizeCandidate);
+      setSearchResults(normalizedExperts);
+      setSearchStats({
+        totalResults: data.total || data.totalElements || normalizedExperts.length,
+        currentPage: data.page || 0,
+        totalPages: data.totalPages || 1
+      });
+    } else {
+      // Fallback to empty results
+      setSearchResults([]);
+      setSearchStats({
+        totalResults: 0,
+        currentPage: 0,
+        totalPages: 0
+      });
+    }
+  };
 
   // Enhanced search handler in LandingPage.tsx
   const handleAdvancedSearch = async (options: {
@@ -484,6 +665,17 @@ const handleSearchResponse = (data: any) => {
 
     const shouldUseAdvanced = forceAdvanced || hasActiveAdvancedFilters();
     
+    // Check if we should use comma-separated AND search
+    const shouldUseCommaAndSearch = 
+      (searchTerm.includes(',') && searchTerm.trim().length >= 2) || 
+      (selectedTechnologies.length > 1);
+    
+    if (shouldUseCommaAndSearch) {
+      // Use the new AND logic for comma-separated search
+      await handleCommaAndSearch();
+      return;
+    }
+
     // Validation
     if (!shouldUseAdvanced && searchTerm.trim().length < 2) {
       setError("Please enter at least 2 characters to search");
@@ -497,25 +689,40 @@ const handleSearchResponse = (data: any) => {
     setHasSearched(true);
 
     try {
-      // Build search request object
+      // Build search request object with comma-separated handling
       const searchRequest: any = {
         searchTerm: searchTerm.trim(),
         page: resetPage ? 0 : page,
-        size: 12
+        size: 12,
+        searchType: searchType
       };
 
       // Add advanced filters if active
       if (shouldUseAdvanced) {
+        // Handle technologies (comma-separated)
         if (selectedTechnologies.length > 0) {
           searchRequest.technologies = selectedTechnologies.join(',');
         }
-        if (domainExperience.trim()) searchRequest.domainExperience = domainExperience.trim();
+        
+        // Handle domain experience (comma-separated)
+        if (domainExperience.trim()) {
+          searchRequest.domainExperience = domainExperience.trim();
+        }
+        
+        // Handle location fields (comma-separated)
+        if (city.trim()) {
+          searchRequest.city = city.trim();
+        }
+        if (country.trim()) {
+          searchRequest.country = country.trim();
+        }
+        if (region.trim()) {
+          searchRequest.region = region.trim();
+        }
+        
+        // Handle experience range
         if (minExperience !== '') searchRequest.minExperience = Number(minExperience);
         if (maxExperience !== '') searchRequest.maxExperience = Number(maxExperience);
-        if (region.trim()) searchRequest.region = region.trim();
-        if (city.trim()) searchRequest.city = city.trim();
-        if (country.trim()) searchRequest.country = country.trim();
-        searchRequest.searchType = searchType;
       }
 
       // Use enhanced search endpoint
@@ -573,6 +780,7 @@ const handleSearchResponse = (data: any) => {
   // --- Clear advanced filters ---
   const clearAdvancedFilters = () => {
     setSelectedTechnologies([]);
+    setTechInput("");
     setDomainExperience("");
     setMinExperience("");
     setMaxExperience("");
@@ -594,6 +802,20 @@ const handleSearchResponse = (data: any) => {
   // --- Remove technology badge ---
   const removeTechnology = (tech: string) => {
     setSelectedTechnologies(prev => prev.filter(t => t !== tech));
+  };
+
+  // --- NEW: Check if we're using AND logic for search hint ---
+  const getSearchHint = () => {
+    if (searchTerm.includes(',') && searchTerm.trim().length >= 2) {
+      return "ⓘ Using AND logic for comma-separated terms (all terms must match)";
+    }
+    if (selectedTechnologies.length > 1) {
+      return "ⓘ Using AND logic for multiple technologies (all must match)";
+    }
+    if (searchTerm.length > 0 && searchTerm.length < 3 && !hasActiveAdvancedFilters()) {
+      return "ⓘ Enter at least 3 characters for text search, or use filters";
+    }
+    return null;
   };
 
   // --- Render active filters display ---
@@ -667,141 +889,196 @@ const handleSearchResponse = (data: any) => {
 
   // --- Render advanced filters panel ---
   const renderAdvancedFilters = () => {
-    if (!showAdvancedFilters) return null;
+  if (!showAdvancedFilters) return null;
 
-    return (
-      <Card className="mt-4 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Technology filter */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Technologies</label>
-            <div className="space-y-2">
-              {isLoadingFilters ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Loading technologies...</span>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {filterOptions.technologies.slice(0, 10).map(tech => (
-                    <SkillBadge
-                      key={tech}
-                      skill={tech}
-                      variant={selectedTechnologies.includes(tech) ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => toggleTechnology(tech)}
-                    />
+  return (
+    <Card className="mt-4 p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Technology filter */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Technologies (AND logic for multiple)</label>
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add technology (comma-separated or press Enter)"
+                value={techInput}
+                onChange={(e) => setTechInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') {
+                    e.preventDefault();
+                    if (techInput.trim()) {
+                      const values = techInput.split(',').map(v => v.trim()).filter(v => v);
+                      setSelectedTechnologies(prev => [...new Set([...prev, ...values])]);
+                      setTechInput('');
+                    }
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  if (techInput.trim()) {
+                    const values = techInput.split(',').map(v => v.trim()).filter(v => v);
+                    setSelectedTechnologies(prev => [...new Set([...prev, ...values])]);
+                    setTechInput('');
+                  }
+                }}
+              >
+                Add
+              </Button>
+            </div>
+            
+            {/* Selected technologies as badges */}
+            {selectedTechnologies.length > 0 && (
+              <div className="p-3 bg-muted/20 rounded-md">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {selectedTechnologies.map(tech => (
+                    <Badge key={tech} variant="secondary" className="gap-1 px-3 py-1">
+                      {tech}
+                      <X 
+                        className="h-3 w-3 cursor-pointer ml-1" 
+                        onClick={() => removeTechnology(tech)} 
+                      />
+                    </Badge>
                   ))}
                 </div>
-              )}
+                <div className="flex justify-between items-center text-xs text-muted-foreground">
+                  <span>{selectedTechnologies.length} technologies selected (AND logic)</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTechnologies([])}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    Clear all
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {/* Quick select popular technologies */}
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Quick select:</p>
+              <div className="flex flex-wrap gap-2">
+                {filterOptions.technologies.slice(0, 8).map(tech => (
+                  <SkillBadge
+                    key={tech}
+                    skill={tech}
+                    variant={selectedTechnologies.includes(tech) ? "default" : "outline"}
+                    className="cursor-pointer"
+                    onClick={() => toggleTechnology(tech)}
+                  />
+                ))}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Domain experience */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Domain Experience</label>
+        {/* Domain experience */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Domain Experience (comma-separated)</label>
+          <Input
+            placeholder="e.g., Appian, BPM, Low-Code"
+            value={domainExperience}
+            onChange={(e) => setDomainExperience(e.target.value)}
+          />
+        </div>
+
+        {/* Experience range */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Experience (years)</label>
+          <div className="flex gap-2">
             <Input
-              placeholder="e.g., Appian, BPM, Low-Code"
-              value={domainExperience}
-              onChange={(e) => setDomainExperience(e.target.value)}
+              placeholder="Min"
+              type="number"
+              value={minExperience}
+              onChange={(e) => setMinExperience(e.target.value ? Number(e.target.value) : "")}
+              min={0}
+              max={50}
             />
-          </div>
-
-          {/* Experience range */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Experience (years)</label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Min"
-                type="number"
-                value={minExperience}
-                onChange={(e) => setMinExperience(e.target.value ? Number(e.target.value) : "")}
-                min={0}
-                max={50}
-              />
-              <Input
-                placeholder="Max"
-                type="number"
-                value={maxExperience}
-                onChange={(e) => setMaxExperience(e.target.value ? Number(e.target.value) : "")}
-                min={0}
-                max={50}
-              />
-            </div>
-          </div>
-
-          {/* Region */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Region</label>
             <Input
-              placeholder="e.g., APAC, EMEA, NA"
-              value={region}
-              onChange={(e) => setRegion(e.target.value)}
-            />
-          </div>
-
-          {/* City */}
-          <div>
-            <label className="block text-sm font-medium mb-2">City</label>
-            <Input
-              placeholder="e.g., Mumbai, New York, London"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-            />
-          </div>
-
-          {/* Country */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Country</label>
-            <Input
-              placeholder="e.g., India, USA, UK"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
+              placeholder="Max"
+              type="number"
+              value={maxExperience}
+              onChange={(e) => setMaxExperience(e.target.value ? Number(e.target.value) : "")}
+              min={0}
+              max={50}
             />
           </div>
         </div>
 
-        {/* Search type and actions */}
-        <div className="flex items-center justify-between mt-6 pt-6 border-t">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">Match:</span>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={searchType === "OR" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSearchType("OR")}
-              >
-                Any Criteria (OR)
-              </Button>
-              <Button
-                type="button"
-                variant={searchType === "AND" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setSearchType("AND")}
-              >
-                All Criteria (AND)
-              </Button>
-            </div>
-          </div>
+        {/* Region */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Region (comma-separated)</label>
+          <Input
+            placeholder="e.g., APAC, EMEA, NA"
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+          />
+        </div>
+
+        {/* City */}
+        <div>
+          <label className="block text-sm font-medium mb-2">City (comma-separated)</label>
+          <Input
+            placeholder="e.g., Sydney, Bangalore, London"
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+          />
+        </div>
+
+        {/* Country */}
+        <div>
+          <label className="block text-sm font-medium mb-2">Country (comma-separated)</label>
+          <Input
+            placeholder="e.g., India, USA, UK"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Search type and actions */}
+      <div className="flex items-center justify-between mt-6 pt-6 border-t">
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium">Match:</span>
           <div className="flex gap-2">
             <Button
-              variant="outline"
-              onClick={() => {
-                setShowAdvancedFilters(false);
-                clearAdvancedFilters();
-              }}
+              type="button"
+              variant={searchType === "OR" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSearchType("OR")}
             >
-              Cancel
+              Any Criteria (OR)
             </Button>
-            <Button onClick={() => handleSearch(true)}>
-              Apply Filters
+            <Button
+              type="button"
+              variant={searchType === "AND" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSearchType("AND")}
+            >
+              All Criteria (AND)
             </Button>
           </div>
         </div>
-      </Card>
-    );
-  };
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowAdvancedFilters(false);
+              clearAdvancedFilters();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button onClick={() => handleSearch(true)}>
+            Apply Filters
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+};
 
   // --- Render search results ---
   const renderSearchResults = () => {
@@ -859,6 +1136,16 @@ const handleSearchResponse = (data: any) => {
               <h2 className="text-2xl font-bold">
                 Search Results ({searchStats?.totalResults || searchResults.length})
               </h2>
+              {searchTerm.includes(',') && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Using AND logic for comma-separated terms
+                </p>
+              )}
+              {selectedTechnologies.length > 1 && !searchTerm.includes(',') && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Using AND logic for multiple technologies
+                </p>
+              )}
             </div>
             {hasSearched && (
               <Button
@@ -1005,9 +1292,9 @@ const handleSearchResponse = (data: any) => {
               </div>
               
               {/* Search hints */}
-              {searchTerm.length > 0 && searchTerm.length < 3 && !hasActiveAdvancedFilters() && (
+              {getSearchHint() && (
                 <div className="mt-2 text-sm text-amber-600">
-                  ⓘ Enter at least 3 characters for text search, or use filters
+                  {getSearchHint()}
                 </div>
               )}
               
