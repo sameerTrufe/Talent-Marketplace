@@ -652,113 +652,95 @@ export function LandingPage() {
   };
 
   // Enhanced search handler in LandingPage.tsx
-  const handleAdvancedSearch = async (options: {
-    forceAdvanced?: boolean;
-    page?: number;
-    resetPage?: boolean;
-  }) => {
-    const {
-      forceAdvanced = false,
-      page = 0,
-      resetPage = false
-    } = options;
+// In LandingPage.tsx, update the handleAdvancedSearch function:
+const handleAdvancedSearch = async () => {
+  setIsLoading(true);
+  setError(null);
+  setHasSearched(true);
 
-    const shouldUseAdvanced = forceAdvanced || hasActiveAdvancedFilters();
+  try {
+    // Build search request with proper AND logic for cross-field filtering
+    const searchRequest: any = {
+      searchTerm: searchTerm.trim(),
+      searchType: "AND", // Force AND for cross-field filtering
+      page: 0,
+      size: 12
+    };
+
+    // Handle technologies (comma-separated)
+    if (selectedTechnologies.length > 0) {
+      searchRequest.technologies = selectedTechnologies.join(',');
+    }
     
-    // Check if we should use comma-separated AND search
-    const shouldUseCommaAndSearch = 
-      (searchTerm.includes(',') && searchTerm.trim().length >= 2) || 
-      (selectedTechnologies.length > 1);
+    // Handle domain experience
+    if (domainExperience.trim()) {
+      searchRequest.domainExperience = domainExperience.trim();
+    }
     
-    if (shouldUseCommaAndSearch) {
-      // Use the new AND logic for comma-separated search
-      await handleCommaAndSearch();
-      return;
+    // Handle location fields - use AND between different location fields
+    const locationFilters = [];
+    if (city.trim()) {
+      searchRequest.city = city.trim();
+      locationFilters.push(`City: ${city.trim()}`);
+    }
+    if (country.trim()) {
+      searchRequest.country = country.trim();
+      locationFilters.push(`Country: ${country.trim()}`);
+    }
+    if (region.trim()) {
+      searchRequest.region = region.trim();
+      locationFilters.push(`Region: ${region.trim()}`);
+    }
+    
+    // Handle experience range
+    if (minExperience !== '') searchRequest.minExperience = Number(minExperience);
+    if (maxExperience !== '') searchRequest.maxExperience = Number(maxExperience);
+
+    console.log("Advanced search request:", searchRequest);
+
+    // Use the v2 search endpoint which supports AND logic
+    const response = await fetch(`${API_BASE_URL}/candidates/search/v2`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(searchRequest)
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Search failed: ${response.status} - ${errorText}`);
     }
 
-    // Validation
-    if (!shouldUseAdvanced && searchTerm.trim().length < 2) {
-      setError("Please enter at least 2 characters to search");
-      setSearchResults([]);
-      setSearchStats(null);
-      return;
-    }
+    const searchResponse = await response.json();
+    
+    console.log("Search response:", searchResponse);
+    
+    const candidates = searchResponse.results?.content || 
+                      searchResponse.content || 
+                      searchResponse.results || [];
+    
+    const normalizedExperts = candidates.map(normalizeCandidate);
+    
+    setSearchResults(normalizedExperts);
+    setSearchStats({
+      totalResults: searchResponse.metadata?.totalResults || 
+                    searchResponse.totalElements || 
+                    normalizedExperts.length,
+      currentPage: searchResponse.metadata?.currentPage || 
+                   searchResponse.number || 0,
+      totalPages: searchResponse.metadata?.totalPages || 
+                  searchResponse.totalPages || 1
+    });
 
-    setIsLoading(true);
-    setError(null);
-    setHasSearched(true);
-
-    try {
-      // Build search request object with comma-separated handling
-      const searchRequest: any = {
-        searchTerm: searchTerm.trim(),
-        page: resetPage ? 0 : page,
-        size: 12,
-        searchType: searchType
-      };
-
-      // Add advanced filters if active
-      if (shouldUseAdvanced) {
-        // Handle technologies (comma-separated)
-        if (selectedTechnologies.length > 0) {
-          searchRequest.technologies = selectedTechnologies.join(',');
-        }
-        
-        // Handle domain experience (comma-separated)
-        if (domainExperience.trim()) {
-          searchRequest.domainExperience = domainExperience.trim();
-        }
-        
-        // Handle location fields (comma-separated)
-        if (city.trim()) {
-          searchRequest.city = city.trim();
-        }
-        if (country.trim()) {
-          searchRequest.country = country.trim();
-        }
-        if (region.trim()) {
-          searchRequest.region = region.trim();
-        }
-        
-        // Handle experience range
-        if (minExperience !== '') searchRequest.minExperience = Number(minExperience);
-        if (maxExperience !== '') searchRequest.maxExperience = Number(maxExperience);
-      }
-
-      // Use enhanced search endpoint
-      const response = await fetch(`${API_BASE_URL}/candidates/search/v2`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(searchRequest)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
-      }
-
-      const searchResponse = await response.json();
-      
-      // Handle response
-      const candidates = searchResponse.results?.content || [];
-      const normalizedExperts = candidates.map(normalizeCandidate);
-      
-      setSearchResults(normalizedExperts);
-      setSearchStats({
-        totalResults: searchResponse.results?.totalElements || 0,
-        currentPage: searchResponse.results?.pageable?.pageNumber || 0,
-        totalPages: searchResponse.results?.totalPages || 0
-      });
-
-    } catch (err) {
-      handleSearchError(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  } catch (err) {
+    handleSearchError(err);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Update the handleKeyDown function to ensure it uses the right function
   const handleKeyDown = (e: React.KeyboardEvent) => {

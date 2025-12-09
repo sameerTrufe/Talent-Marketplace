@@ -88,11 +88,7 @@ export function ExpertCard({
               {availability && (
                 <p className="text-sm text-green-600 mt-1">{availability}</p>
               )}
-            </div>
-            <div className="text-right">
-              <p className="font-semibold">{rate}</p>
-              <p className="text-sm text-muted-foreground">per hour</p>
-            </div>
+            </div> 
           </div>
           {showActions && (
             <div className="flex gap-2 mt-4">
