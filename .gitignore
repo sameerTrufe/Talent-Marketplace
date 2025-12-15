@@ -1,1 +1,111 @@
 node_modules
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Production
+/build
+/dist
+
+# Misc
+.DS_Store
+*.pem
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env*.local
+.env
+.env.production
+.env.development
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+/.npm
+
+# Optional eslint cache
+/.eslintcache
+
+# Optional stylelint cache
+.stylelintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn/Yarn 2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Parcel
+.cache
+.parcel-cache
+
+# Next.js
+.next
+.out
+
+# Nuxt
+.nuxt
+
+# Storybook
+storybook-static
+.out
+.storybook/*
+
+# VSCode
+.vscode/*
+!.vscode/extensions.json
+
+# JetBrains IDEs
+.idea
+*.iws
+*.iml
+*.ipr
+
+# System files
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Mac
+*.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+[Tt]humbs.db
+Desktop.ini
+$WinREAgent/
+
+# Linux
+*~
+
+# Temporary files
+*.tmp
+*.temp
+
+# Optional - if you're using TypeScript
+# *.tsbuildinfo
+
+# Optional - if you're using Jest
+# .jest/
