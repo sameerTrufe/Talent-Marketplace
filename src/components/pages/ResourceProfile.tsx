@@ -22,7 +22,57 @@ import {
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 
-// Define candidate profile type
+// Define interfaces
+interface Technology {
+  id: number;
+  techName: string;
+  skillType?: 'PRIMARY' | 'SECONDARY' | 'TOOL';
+  yearsOfExperience?: number;
+  lastUsedYear?: number;
+}
+
+interface Certification {
+  id: number;
+  certName: string;
+  issuer?: string;
+  yearObtained?: number;
+}
+
+interface Education {
+  id: number;
+  degree: string;
+  college?: string;
+  university?: string;
+  yearOfPassing?: number;
+}
+
+interface WorkExperience {
+  id: number;
+  company: string;
+  role: string;
+  startDate: string;
+  endDate: string;
+  responsibilities: string;
+  projectTitle?: string;
+  projectRole?: string;
+  clientName?: string;
+  teamSize?: number;
+  technologiesUsed?: string;
+  keyAchievements?: string;
+  noticePeriodServedDays?: number;
+  rehireEligibility?: boolean;
+  isCurrent?: boolean;
+}
+
+interface AwardAchievement {
+  id: number;
+  awardName: string;
+  awardType: string;
+  issuingOrganization: string;
+  issueDate: string;
+  description: string;
+}
+
 interface CandidateProfile {
   id: number;
   name: string;
@@ -33,11 +83,21 @@ interface CandidateProfile {
   domainExperience: string;
   college: string;
   university: string;
-  technologies: string[];
-  certifications: string[];
-  educations: string[];
-  workExperiences: string[];
-  // Frontend specific fields
+  technologies: Technology[];
+  certifications: Certification[];
+  educations: Education[];
+  workExperiences: WorkExperience[];
+  awardsAchievements: AwardAchievement[];
+  
+  availabilityStatus?: string;
+  noticePeriodDays?: number;
+  earliestStartDate?: string;
+  currentCompany?: string;
+  currentCompanyTenureMonths?: number;
+  lastCompanyTenureMonths?: number;
+  isWillingToBuyoutNotice?: boolean;
+  
+  // Frontend computed fields
   location?: string;
   role?: string;
   experience?: string;
@@ -48,7 +108,7 @@ interface CandidateProfile {
   availability?: string;
 }
 
-// Static data (fallback/placeholder)
+// Static data
 const staticPortfolio = [
   {
     title: "Enterprise BPM System",
@@ -72,28 +132,30 @@ const staticReviews = [
     company: "Tech Solutions Inc",
     rating: 5,
     date: "2 weeks ago",
-    comment:
-      "Sarah is an exceptional Appian developer. She delivered our project on time and exceeded expectations. Highly recommend!",
+    comment: "Sarah is an exceptional Appian developer. She delivered our project on time and exceeded expectations. Highly recommend!",
   },
   {
     client: "Maria Garcia",
     company: "Global Enterprises",
     rating: 5,
     date: "1 month ago",
-    comment:
-      "Outstanding work! Great communication and technical expertise. Will definitely hire again.",
+    comment: "Outstanding work! Great communication and technical expertise. Will definitely hire again.",
   },
 ];
 
 const staticCertifications = [
-  { name: "Appian Certified Senior Developer", issuer: "Appian", year: "2023" },
-  { name: "Appian Certified Lead Developer", issuer: "Appian", year: "2022" },
-  { name: "BPM Professional Certification", issuer: "ABPMP", year: "2021" },
+  { id: 1, certName: "Appian Certified Senior Developer", issuer: "Appian", yearObtained: 2023 },
+  { id: 2, certName: "Appian Certified Lead Developer", issuer: "Appian", yearObtained: 2022 },
+  { id: 3, certName: "BPM Professional Certification", issuer: "ABPMP", yearObtained: 2021 },
 ];
 
-const API_BASE_URL = import.meta.env.DEV 
+// Check if running in development
+const isDevelopment = import.meta.env.DEV;
+const API_BASE_URL = isDevelopment 
   ? 'http://localhost:8080/api' 
   : '/api';
+
+console.log('API Base URL:', API_BASE_URL, 'Development:', isDevelopment);
 
 export function ResourceProfile() {
   const { id } = useParams<{ id: string }>();
@@ -104,74 +166,190 @@ export function ResourceProfile() {
   const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
+    console.log('ResourceProfile mounted with ID:', id);
     if (id) {
       fetchCandidateProfile(id);
+    } else {
+      console.error('No candidate ID provided');
+      setError('No candidate ID provided');
+      setLoading(false);
     }
   }, [id]);
 
-  // In ResourceProfile.tsx, update the fetchCandidateProfile function:
-const fetchCandidateProfile = async (candidateId: string) => {
-  try {
-    setLoading(true);
-    console.log(`Fetching candidate with ID: ${candidateId}`);
+  const fetchCandidateProfile = async (candidateId: string) => {
+    console.log('Starting fetch for candidate:', candidateId);
     
-    const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include' // Important for CORS with credentials
-    });
-
-    console.log('Response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response:', errorText);
-      throw new Error(`Failed to fetch candidate: ${response.status} - ${errorText}`);
+    // For demo/testing without backend
+    if (isDevelopment && import.meta.env.VITE_USE_MOCK_DATA === 'true') {
+      console.log('Using mock data');
+      setTimeout(() => {
+        const mockCandidate: CandidateProfile = {
+          id: parseInt(candidateId),
+          name: 'John Doe',
+          city: 'San Francisco',
+          country: 'USA',
+          region: 'North America',
+          totalExperienceYears: 8,
+          domainExperience: 'Low-Code Platform Development',
+          college: 'Stanford University',
+          university: 'Stanford',
+          technologies: [
+            { id: 1, techName: 'Appian', skillType: 'PRIMARY', yearsOfExperience: 5, lastUsedYear: 2024 },
+            { id: 2, techName: 'Java', skillType: 'PRIMARY', yearsOfExperience: 8, lastUsedYear: 2024 },
+            { id: 3, techName: 'Spring Boot', skillType: 'SECONDARY', yearsOfExperience: 4, lastUsedYear: 2023 },
+            { id: 4, techName: 'AWS', skillType: 'TOOL', yearsOfExperience: 3, lastUsedYear: 2024 },
+            { id: 5, techName: 'Docker', skillType: 'TOOL', yearsOfExperience: 2, lastUsedYear: 2024 },
+          ],
+          certifications: staticCertifications,
+          educations: [
+            { id: 1, degree: 'Bachelor of Computer Science', college: 'Stanford University', university: 'Stanford', yearOfPassing: 2015 },
+            { id: 2, degree: 'Master of Software Engineering', college: 'MIT', university: 'Massachusetts Institute of Technology', yearOfPassing: 2017 },
+          ],
+          workExperiences: [
+            {
+              id: 1,
+              company: 'Tech Solutions Inc',
+              role: 'Lead Appian Developer',
+              startDate: '2021-01-01',
+              endDate: '2024-01-01',
+              responsibilities: 'Led a team of 5 developers in building enterprise BPM solutions',
+              projectTitle: 'Enterprise Process Automation',
+              projectRole: 'Lead Developer',
+              clientName: 'Global Bank Corp',
+              teamSize: 12,
+              technologiesUsed: 'Appian, Java, Oracle DB',
+              keyAchievements: 'Reduced processing time by 70%',
+              noticePeriodServedDays: 60,
+              rehireEligibility: true,
+              isCurrent: false,
+            },
+            {
+              id: 2,
+              company: 'Innovate Tech',
+              role: 'Senior Developer',
+              startDate: '2018-01-01',
+              endDate: '2020-12-31',
+              responsibilities: 'Developed and maintained Appian applications',
+              projectTitle: 'Customer Portal',
+              projectRole: 'Developer',
+              clientName: 'Retail Chain',
+              teamSize: 8,
+              technologiesUsed: 'Appian, SQL Server, REST APIs',
+              keyAchievements: 'Improved customer satisfaction by 40%',
+              noticePeriodServedDays: 45,
+              rehireEligibility: true,
+              isCurrent: false,
+            },
+          ],
+          awardsAchievements: [
+            {
+              id: 1,
+              awardName: 'Innovation Award',
+              awardType: 'PROFESSIONAL',
+              issuingOrganization: 'Tech Solutions Inc',
+              issueDate: '2023-06-15',
+              description: 'Awarded for developing an innovative process automation solution',
+            },
+          ],
+          availabilityStatus: 'AVAILABLE_NOW',
+          noticePeriodDays: 30,
+          earliestStartDate: '2024-02-01',
+          currentCompany: 'Tech Solutions Inc',
+          currentCompanyTenureMonths: 36,
+          lastCompanyTenureMonths: 24,
+          isWillingToBuyoutNotice: true,
+          location: 'San Francisco, USA',
+          role: 'Lead Appian Developer',
+          experience: '8+ years experience',
+          rating: 4.8,
+          reviews: 47,
+          rate: '$125/hour',
+          image: `https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&q=80&${candidateId}`,
+          availability: 'Available Now',
+        };
+        
+        setCandidate(mockCandidate);
+        setLoading(false);
+      }, 500);
+      return;
     }
 
-    const data = await response.json();
-    console.log('Candidate data received:', data);
-    
-    // Transform the API response
-    const transformedCandidate: CandidateProfile = {
-      id: data.id || parseInt(candidateId),
-      name: data.name || 'Unknown Candidate',
-      city: data.city || '',
-      country: data.country || '',
-      region: data.region || '',
-      totalExperienceYears: data.totalExperienceYears || 0,
-      domainExperience: data.domainExperience || '',
-      college: data.college || '',
-      university: data.university || '',
-      technologies: data.technologies || [],
-      certifications: data.certifications || [],
-      educations: data.educations || [],
-      workExperiences: data.workExperiences || [],
-      // Frontend specific fields
-      location: data.location || (data.city && data.country ? `${data.city}, ${data.country}` : data.region || 'Remote'),
-      role: data.role || (data.technologies && data.technologies.length > 0 ? `${data.technologies[0]} Expert` : 'Low-Code Expert'),
-      experience: data.experience || (data.totalExperienceYears ? `${data.totalExperienceYears}+ years experience` : 'Experienced Professional'),
-      rating: data.rating || 4.0 + Math.random() * 1.0,
-      reviews: data.reviews || Math.floor(Math.random() * 100),
-      rate: data.rate || `$${Math.min((data.totalExperienceYears || 5) * 10 + 50, 200)}/hour`,
-      image: data.image || `https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&q=80&${data.id || candidateId}`,
-      availability: data.availability || 'Available Now'
-    };
-    
-    console.log('Transformed candidate:', transformedCandidate);
-    setCandidate(transformedCandidate);
-    setError(null);
-    
-  } catch (err) {
-    console.error("Error fetching candidate profile:", err);
-    setError("Failed to load candidate profile. Please try again.");
-    
-    // Fallback to static data for demo ONLY if we have the ID
-    if (import.meta.env.DEV && candidateId) {
-      // You can create a mock candidate based on the ID
+    try {
+      setLoading(true);
+      console.log(`Fetching candidate from: ${API_BASE_URL}/candidates/${candidateId}`);
+      
+      const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        
+        // Try fallback to mock data if backend is not available
+        if (isDevelopment) {
+          console.log('Backend not available, falling back to mock data');
+          throw new Error('Backend connection failed. Using demo data.');
+        }
+        
+        throw new Error(`Failed to fetch candidate: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Candidate data received:', data);
+      
+      // Transform the API response
+      const transformedCandidate: CandidateProfile = {
+        id: data.id || parseInt(candidateId),
+        name: data.name || 'Unknown Candidate',
+        city: data.city || '',
+        country: data.country || '',
+        region: data.region || '',
+        totalExperienceYears: data.totalExperienceYears || 0,
+        domainExperience: data.domainExperience || '',
+        college: data.college || '',
+        university: data.university || '',
+        technologies: data.technologies || [],
+        certifications: data.certifications || [],
+        educations: data.educations || [],
+        workExperiences: data.workExperiences || [],
+        awardsAchievements: data.awardsAchievements || [],
+        
+        availabilityStatus: data.availabilityStatus,
+        noticePeriodDays: data.noticePeriodDays,
+        earliestStartDate: data.earliestStartDate,
+        currentCompany: data.currentCompany,
+        currentCompanyTenureMonths: data.currentCompanyTenureMonths,
+        lastCompanyTenureMonths: data.lastCompanyTenureMonths,
+        isWillingToBuyoutNotice: data.isWillingToBuyoutNotice,
+        
+        location: data.location || (data.city && data.country ? `${data.city}, ${data.country}` : data.region || 'Remote'),
+        role: data.role || (data.technologies && data.technologies.length > 0 ? 
+              `${data.technologies[0]?.techName} Expert` : 'Low-Code Expert'),
+        experience: data.experience || (data.totalExperienceYears ? 
+                  `${data.totalExperienceYears}+ years experience` : 'Experienced Professional'),
+        rating: data.rating || 4.0 + Math.random() * 1.0,
+        reviews: data.reviews || Math.floor(Math.random() * 100),
+        rate: data.rate || `$${Math.min((data.totalExperienceYears || 5) * 10 + 50, 200)}/hour`,
+        image: data.image || `https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&q=80&${data.id || candidateId}`,
+        availability: data.availability || 'Available Now',
+      };
+      
+      console.log('Transformed candidate:', transformedCandidate);
+      setCandidate(transformedCandidate);
+      setError(null);
+      
+    } catch (err) {
+      console.error("Error fetching candidate profile:", err);
+      setError(err instanceof Error ? err.message : "Failed to load candidate profile");
+      
+      // Create a basic mock candidate for demo purposes
       const mockCandidate: CandidateProfile = {
         id: parseInt(candidateId),
         name: `Candidate ${candidateId}`,
@@ -182,10 +360,15 @@ const fetchCandidateProfile = async (candidateId: string) => {
         domainExperience: 'Software Development',
         college: 'Example College',
         university: 'Example University',
-        technologies: ['Appian', 'Java', 'SQL'],
-        certifications: ['Sample Certification'],
-        educations: ['Bachelor of Computer Science'],
-        workExperiences: ['Senior Developer at Example Company'],
+        technologies: [
+          { id: 1, techName: 'Appian', skillType: 'PRIMARY' },
+          { id: 2, techName: 'Java', skillType: 'SECONDARY' },
+          { id: 3, techName: 'SQL', skillType: 'TOOL' },
+        ],
+        certifications: [],
+        educations: [],
+        workExperiences: [],
+        awardsAchievements: [],
         location: 'Remote',
         role: 'Software Developer',
         experience: '5+ years experience',
@@ -193,18 +376,33 @@ const fetchCandidateProfile = async (candidateId: string) => {
         reviews: 25,
         rate: '$85/hour',
         image: `https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&q=80`,
-        availability: 'Available Now'
+        availability: 'Available Now',
       };
+      
       setCandidate(mockCandidate);
-      setError("Backend connection failed. Showing demo data.");
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const handleBack = () => {
-    navigate(-1); // Go back to previous page
+    console.log('Navigating back');
+    navigate('/candidates'); // Navigate to candidates list instead of -1
+  };
+
+  const handleMessage = () => {
+    console.log('Message button clicked');
+    // Implement message functionality
+  };
+
+  const handleScheduleCall = () => {
+    console.log('Schedule call button clicked');
+    // Implement schedule call functionality
+  };
+
+  const handleHire = () => {
+    console.log('Hire button clicked');
+    // Implement hire functionality
   };
 
   if (loading) {
@@ -229,7 +427,7 @@ const fetchCandidateProfile = async (candidateId: string) => {
           <Card className="p-8 max-w-md text-center">
             <div className="text-red-500 mb-4">Error</div>
             <p className="mb-4">{error}</p>
-            <Button onClick={handleBack}>Go Back</Button>
+            <Button onClick={handleBack}>Go Back to Candidates</Button>
           </Card>
         </div>
       </div>
@@ -243,7 +441,7 @@ const fetchCandidateProfile = async (candidateId: string) => {
         <div className="flex-1 overflow-auto flex items-center justify-center">
           <Card className="p-8 max-w-md text-center">
             <p className="mb-4">Candidate not found</p>
-            <Button onClick={handleBack}>Go Back</Button>
+            <Button onClick={handleBack}>Go Back to Candidates</Button>
           </Card>
         </div>
       </div>
@@ -259,10 +457,10 @@ const fetchCandidateProfile = async (candidateId: string) => {
           <div className="flex items-center justify-between p-6">
             <Button variant="ghost" onClick={handleBack} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Back to Results
+              Back to Candidates
             </Button>
             <div className="flex items-center gap-4">
-              <Button variant="outline">
+              <Button variant="outline" onClick={handleMessage}>
                 <MessageSquare className="h-4 w-4 mr-2" />
                 Messages
               </Button>
@@ -275,8 +473,8 @@ const fetchCandidateProfile = async (candidateId: string) => {
         </div>
 
         <div className="p-6 max-w-6xl mx-auto">
-          {/* Error Banner */}
-          {error && (
+          {/* Error Banner - Only show if we have an error but still showing candidate */}
+          {error && candidate && (
             <div className="mb-6 p-4 bg-yellow-50 border-yellow-200 rounded-lg">
               <p className="text-yellow-700 text-sm">{error}</p>
             </div>
@@ -294,7 +492,7 @@ const fetchCandidateProfile = async (candidateId: string) => {
               <div className="flex-1">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h1 className="mb-2">{candidate.name}</h1>
+                    <h1 className="text-3xl font-bold mb-2">{candidate.name}</h1>
                     <p className="text-muted-foreground mb-3">
                       {candidate.role}
                     </p>
@@ -308,11 +506,11 @@ const fetchCandidateProfile = async (candidateId: string) => {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button>
+                    <Button onClick={handleMessage}>
                       <MessageSquare className="h-4 w-4 mr-2" />
                       Message
                     </Button>
-                    <Button variant="outline">
+                    <Button variant="outline" onClick={handleScheduleCall}>
                       <Phone className="h-4 w-4 mr-2" />
                       Schedule Call
                     </Button>
@@ -341,7 +539,7 @@ const fetchCandidateProfile = async (candidateId: string) => {
             </div>
 
             <div className="border-t mt-6 pt-6">
-              <Button size="lg" className="w-full md:w-auto">
+              <Button size="lg" className="w-full md:w-auto" onClick={handleHire}>
                 Hire {candidate.name?.split(' ')[0]} - {candidate.rate}
               </Button>
             </div>
@@ -373,7 +571,7 @@ const fetchCandidateProfile = async (candidateId: string) => {
                     {candidate.technologies?.map((tech, index) => (
                       <li key={index} className="flex items-start gap-2">
                         <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                        <span>{tech} development and implementation</span>
+                        <span>{tech.techName} development and implementation</span>
                       </li>
                     ))}
                     {candidate.domainExperience && (
@@ -388,6 +586,132 @@ const fetchCandidateProfile = async (candidateId: string) => {
                   </ul>
                 </Card>
 
+                {/* Availability Section */}
+                <Card className="p-6 mb-6">
+                  <h3 className="mb-4">Availability & Notice Period</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Status</p>
+                      <p className="font-semibold">
+                        {candidate.availabilityStatus ? 
+                          candidate.availabilityStatus.replace('_', ' ') : 
+                          'Not specified'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Notice Period</p>
+                      <p className="font-semibold">
+                        {candidate.noticePeriodDays ? `${candidate.noticePeriodDays} days` : 'Not specified'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Earliest Start</p>
+                      <p className="font-semibold">
+                        {candidate.earliestStartDate || 'Not specified'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Current Company</p>
+                      <p className="font-semibold">
+                        {candidate.currentCompany || 'Not specified'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Current Tenure</p>
+                      <p className="font-semibold">
+                        {candidate.currentCompanyTenureMonths ? 
+                          `${candidate.currentCompanyTenureMonths} months` : 
+                          'Not specified'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-1">Buyout Notice</p>
+                      <p className="font-semibold">
+                        {candidate.isWillingToBuyoutNotice ? 'Yes' : 'No'}
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Technologies by Skill Type */}
+                <Card className="p-6 mb-6">
+                  <h3 className="mb-4">Technical Expertise</h3>
+                  
+                  {candidate.technologies && candidate.technologies.length > 0 ? (
+                    <>
+                      {/* Primary Technologies */}
+                      {candidate.technologies.filter(t => t.skillType === 'PRIMARY').length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="font-medium mb-2">Primary Technologies</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {candidate.technologies
+                              .filter(t => t.skillType === 'PRIMARY')
+                              .map((tech, index) => (
+                                <div key={index} className="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm">
+                                  {tech.techName} 
+                                  {tech.yearsOfExperience && ` (${tech.yearsOfExperience} yrs)`}
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Secondary Technologies */}
+                      {candidate.technologies.filter(t => t.skillType === 'SECONDARY').length > 0 && (
+                        <div className="mb-4">
+                          <h4 className="font-medium mb-2">Secondary Technologies</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {candidate.technologies
+                              .filter(t => t.skillType === 'SECONDARY')
+                              .map((tech, index) => (
+                                <div key={index} className="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-sm">
+                                  {tech.techName}
+                                  {tech.yearsOfExperience && ` (${tech.yearsOfExperience} yrs)`}
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Tools */}
+                      {candidate.technologies.filter(t => t.skillType === 'TOOL').length > 0 && (
+                        <div>
+                          <h4 className="font-medium mb-2">Tools & Platforms</h4>
+                          <div className="flex flex-wrap gap-2">
+                            {candidate.technologies
+                              .filter(t => t.skillType === 'TOOL')
+                              .map((tech, index) => (
+                                <div key={index} className="bg-muted px-3 py-1 rounded-full text-sm">
+                                  {tech.techName}
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-muted-foreground">No technologies listed</p>
+                  )}
+                </Card>
+
+                {/* Awards Section */}
+                {candidate.awardsAchievements && candidate.awardsAchievements.length > 0 && (
+                  <Card className="p-6 mb-6">
+                    <h3 className="mb-4">Awards & Achievements</h3>
+                    <div className="space-y-4">
+                      {candidate.awardsAchievements.map((award, index) => (
+                        <div key={index} className="border-l-2 border-primary pl-4 py-2">
+                          <p className="font-semibold">{award.awardName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {award.issuingOrganization} • {award.issueDate}
+                          </p>
+                          <p className="text-sm mt-1">{award.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
                 <div className="space-y-6">
                   <Card className="p-6">
                     <h3 className="mb-4">Certifications</h3>
@@ -399,9 +723,9 @@ const fetchCandidateProfile = async (candidateId: string) => {
                               <Award className="h-5 w-5 text-primary" />
                             </div>
                             <div>
-                              <p className="font-semibold text-sm">{cert}</p>
+                              <p className="font-semibold text-sm">{cert.certName}</p>
                               <p className="text-xs text-muted-foreground">
-                                {cert.includes('Appian') ? 'Appian' : 'Professional'} • Recent
+                                {cert.issuer || 'Professional'} • {cert.yearObtained || 'Recent'}
                               </p>
                             </div>
                           </div>
@@ -438,7 +762,12 @@ const fetchCandidateProfile = async (candidateId: string) => {
                             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                               <CheckCircle className="h-4 w-4 text-primary" />
                             </div>
-                            <p className="text-sm">{edu}</p>
+                            <div>
+                              <p className="text-sm font-medium">{edu.degree}</p>
+                              {edu.college && (
+                                <p className="text-xs text-muted-foreground">{edu.college}</p>
+                              )}
+                            </div>
                           </div>
                         ))
                       ) : (
@@ -476,10 +805,11 @@ const fetchCandidateProfile = async (candidateId: string) => {
                     <div className="space-y-4">
                       {candidate.workExperiences.map((exp, index) => (
                         <div key={index} className="border-l-2 border-primary pl-4 py-3">
-                          <p className="font-semibold">{exp}</p>
+                          <p className="font-semibold">{exp.role} at {exp.company}</p>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {exp.includes(' at ') ? exp.split(' at ')[1] : 'Previous role'}
+                            {exp.startDate} - {exp.endDate}
                           </p>
+                          <p className="text-sm mt-2">{exp.responsibilities}</p>
                         </div>
                       ))}
                     </div>
