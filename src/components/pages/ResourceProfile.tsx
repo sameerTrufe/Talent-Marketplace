@@ -16,9 +16,40 @@ import {
   Award,
   Clock,
   CheckCircle,
+  ArrowLeft,
+  Loader2,
 } from "lucide-react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 
-const portfolio = [
+// Define candidate profile type
+interface CandidateProfile {
+  id: number;
+  name: string;
+  city: string;
+  country: string;
+  region: string;
+  totalExperienceYears: number;
+  domainExperience: string;
+  college: string;
+  university: string;
+  technologies: string[];
+  certifications: string[];
+  educations: string[];
+  workExperiences: string[];
+  // Frontend specific fields
+  location?: string;
+  role?: string;
+  experience?: string;
+  rating?: number;
+  reviews?: number;
+  rate?: string;
+  image?: string;
+  availability?: string;
+}
+
+// Static data (fallback/placeholder)
+const staticPortfolio = [
   {
     title: "Enterprise BPM System",
     client: "Fortune 500 Company",
@@ -33,16 +64,9 @@ const portfolio = [
     duration: "8 months",
     technologies: ["Appian", "Process Mining", "Analytics"],
   },
-  {
-    title: "Document Management System",
-    client: "Financial Institution",
-    description: "Built secure document management with workflow automation",
-    duration: "4 months",
-    technologies: ["Appian", "Document Management", "Security"],
-  },
 ];
 
-const reviews = [
+const staticReviews = [
   {
     client: "John Smith",
     company: "Tech Solutions Inc",
@@ -59,23 +83,173 @@ const reviews = [
     comment:
       "Outstanding work! Great communication and technical expertise. Will definitely hire again.",
   },
-  {
-    client: "Robert Chen",
-    company: "Innovation Labs",
-    rating: 4,
-    date: "2 months ago",
-    comment:
-      "Very professional and knowledgeable. Completed the project successfully with minor adjustments needed.",
-  },
 ];
 
-const certifications = [
+const staticCertifications = [
   { name: "Appian Certified Senior Developer", issuer: "Appian", year: "2023" },
   { name: "Appian Certified Lead Developer", issuer: "Appian", year: "2022" },
   { name: "BPM Professional Certification", issuer: "ABPMP", year: "2021" },
 ];
 
+const API_BASE_URL = import.meta.env.DEV 
+  ? 'http://localhost:8080/api' 
+  : '/api';
+
 export function ResourceProfile() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [candidate, setCandidate] = useState<CandidateProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
+
+  useEffect(() => {
+    if (id) {
+      fetchCandidateProfile(id);
+    }
+  }, [id]);
+
+  // In ResourceProfile.tsx, update the fetchCandidateProfile function:
+const fetchCandidateProfile = async (candidateId: string) => {
+  try {
+    setLoading(true);
+    console.log(`Fetching candidate with ID: ${candidateId}`);
+    
+    const response = await fetch(`${API_BASE_URL}/candidates/${candidateId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include' // Important for CORS with credentials
+    });
+
+    console.log('Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      throw new Error(`Failed to fetch candidate: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('Candidate data received:', data);
+    
+    // Transform the API response
+    const transformedCandidate: CandidateProfile = {
+      id: data.id || parseInt(candidateId),
+      name: data.name || 'Unknown Candidate',
+      city: data.city || '',
+      country: data.country || '',
+      region: data.region || '',
+      totalExperienceYears: data.totalExperienceYears || 0,
+      domainExperience: data.domainExperience || '',
+      college: data.college || '',
+      university: data.university || '',
+      technologies: data.technologies || [],
+      certifications: data.certifications || [],
+      educations: data.educations || [],
+      workExperiences: data.workExperiences || [],
+      // Frontend specific fields
+      location: data.location || (data.city && data.country ? `${data.city}, ${data.country}` : data.region || 'Remote'),
+      role: data.role || (data.technologies && data.technologies.length > 0 ? `${data.technologies[0]} Expert` : 'Low-Code Expert'),
+      experience: data.experience || (data.totalExperienceYears ? `${data.totalExperienceYears}+ years experience` : 'Experienced Professional'),
+      rating: data.rating || 4.0 + Math.random() * 1.0,
+      reviews: data.reviews || Math.floor(Math.random() * 100),
+      rate: data.rate || `$${Math.min((data.totalExperienceYears || 5) * 10 + 50, 200)}/hour`,
+      image: data.image || `https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&q=80&${data.id || candidateId}`,
+      availability: data.availability || 'Available Now'
+    };
+    
+    console.log('Transformed candidate:', transformedCandidate);
+    setCandidate(transformedCandidate);
+    setError(null);
+    
+  } catch (err) {
+    console.error("Error fetching candidate profile:", err);
+    setError("Failed to load candidate profile. Please try again.");
+    
+    // Fallback to static data for demo ONLY if we have the ID
+    if (import.meta.env.DEV && candidateId) {
+      // You can create a mock candidate based on the ID
+      const mockCandidate: CandidateProfile = {
+        id: parseInt(candidateId),
+        name: `Candidate ${candidateId}`,
+        city: 'Unknown',
+        country: 'Unknown',
+        region: 'Unknown',
+        totalExperienceYears: 5,
+        domainExperience: 'Software Development',
+        college: 'Example College',
+        university: 'Example University',
+        technologies: ['Appian', 'Java', 'SQL'],
+        certifications: ['Sample Certification'],
+        educations: ['Bachelor of Computer Science'],
+        workExperiences: ['Senior Developer at Example Company'],
+        location: 'Remote',
+        role: 'Software Developer',
+        experience: '5+ years experience',
+        rating: 4.5,
+        reviews: 25,
+        rate: '$85/hour',
+        image: `https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&q=80`,
+        availability: 'Available Now'
+      };
+      setCandidate(mockCandidate);
+      setError("Backend connection failed. Showing demo data.");
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const handleBack = () => {
+    navigate(-1); // Go back to previous page
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <Sidebar role="client" />
+        <div className="flex-1 overflow-auto flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
+            <p className="mt-4 text-primary">Loading candidate profile...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !candidate) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <Sidebar role="client" />
+        <div className="flex-1 overflow-auto flex items-center justify-center">
+          <Card className="p-8 max-w-md text-center">
+            <div className="text-red-500 mb-4">Error</div>
+            <p className="mb-4">{error}</p>
+            <Button onClick={handleBack}>Go Back</Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!candidate) {
+    return (
+      <div className="flex min-h-screen bg-background">
+        <Sidebar role="client" />
+        <div className="flex-1 overflow-auto flex items-center justify-center">
+          <Card className="p-8 max-w-md text-center">
+            <p className="mb-4">Candidate not found</p>
+            <Button onClick={handleBack}>Go Back</Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar role="client" />
@@ -83,7 +257,10 @@ export function ResourceProfile() {
         {/* Header */}
         <div className="border-b bg-background sticky top-0 z-10">
           <div className="flex items-center justify-between p-6">
-            <Button variant="ghost">← Back to Browse</Button>
+            <Button variant="ghost" onClick={handleBack} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Results
+            </Button>
             <div className="flex items-center gap-4">
               <Button variant="outline">
                 <MessageSquare className="h-4 w-4 mr-2" />
@@ -98,26 +275,36 @@ export function ResourceProfile() {
         </div>
 
         <div className="p-6 max-w-6xl mx-auto">
+          {/* Error Banner */}
+          {error && (
+            <div className="mb-6 p-4 bg-yellow-50 border-yellow-200 rounded-lg">
+              <p className="text-yellow-700 text-sm">{error}</p>
+            </div>
+          )}
+
           {/* Profile Header */}
           <Card className="p-8 mb-6">
             <div className="flex flex-col md:flex-row gap-6">
               <Avatar className="h-32 w-32">
-                <AvatarImage src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400" />
-                <AvatarFallback>SJ</AvatarFallback>
+                <AvatarImage src={candidate.image} />
+                <AvatarFallback>
+                  {candidate.name?.split(' ').map(n => n[0]).join('') || 'C'}
+                </AvatarFallback>
               </Avatar>
               <div className="flex-1">
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <h1 className="mb-2">Sarah Johnson</h1>
+                    <h1 className="mb-2">{candidate.name}</h1>
                     <p className="text-muted-foreground mb-3">
-                      Senior Appian Developer
+                      {candidate.role}
                     </p>
                     <div className="flex flex-wrap gap-2 mb-3">
-                      <SkillBadge skill="Appian" />
-                      <SkillBadge skill="BPM" />
-                      <SkillBadge skill="Process Mining" />
-                      <SkillBadge skill="Integration" />
-                      <SkillBadge skill="Analytics" />
+                      {candidate.technologies?.slice(0, 5).map((tech, index) => (
+                        <SkillBadge key={index} skill={tech} />
+                      ))}
+                      {(!candidate.technologies || candidate.technologies.length === 0) && (
+                        <p className="text-sm text-muted-foreground">No technologies listed</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -135,19 +322,19 @@ export function ResourceProfile() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="flex items-center gap-2 text-sm">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span>New York, USA</span>
+                    <span>{candidate.location}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                    <span>4.9 (47 reviews)</span>
+                    <span>{candidate.rating?.toFixed(1)} ({candidate.reviews} reviews)</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Briefcase className="h-4 w-4 text-muted-foreground" />
-                    <span>8+ years experience</span>
+                    <span>{candidate.experience}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span className="text-green-600">Available Now</span>
+                    <span className="text-green-600">{candidate.availability}</span>
                   </div>
                 </div>
               </div>
@@ -155,16 +342,16 @@ export function ResourceProfile() {
 
             <div className="border-t mt-6 pt-6">
               <Button size="lg" className="w-full md:w-auto">
-                Hire Sarah - $95/hour
+                Hire {candidate.name?.split(' ')[0]} - {candidate.rate}
               </Button>
             </div>
           </Card>
 
           {/* Tabs */}
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs defaultValue="overview" className="w-full" onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-4 mb-6">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
+              <TabsTrigger value="experience">Experience</TabsTrigger>
               <TabsTrigger value="rate">Rate & Availability</TabsTrigger>
               <TabsTrigger value="reviews">Reviews</TabsTrigger>
             </TabsList>
@@ -174,37 +361,30 @@ export function ResourceProfile() {
                 <Card className="md:col-span-2 p-6">
                   <h3 className="mb-4">About</h3>
                   <p className="text-muted-foreground mb-6">
-                    Senior Appian Developer with 8+ years of experience in
-                    building enterprise-grade BPM solutions. Specialized in
-                    process automation, integration, and analytics. Successfully
-                    delivered 50+ projects for Fortune 500 companies across
-                    various industries including healthcare, finance, and
-                    manufacturing.
+                    {candidate.domainExperience ? 
+                      `Expert in ${candidate.domainExperience} with ${candidate.totalExperienceYears}+ years of experience.` :
+                      `Experienced professional with ${candidate.totalExperienceYears}+ years in the industry.`
+                    }
+                    {candidate.college && ` Educated at ${candidate.college}${candidate.university ? `, ${candidate.university}` : ''}.`}
                   </p>
+                  
                   <h3 className="mb-4">Expertise</h3>
                   <ul className="space-y-2 text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span>
-                        Business Process Management (BPM) and automation
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span>Appian application development and architecture</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span>System integration and API development</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span>Process mining and optimization</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                      <span>Requirements gathering and solution design</span>
-                    </li>
+                    {candidate.technologies?.map((tech, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                        <span>{tech} development and implementation</span>
+                      </li>
+                    ))}
+                    {candidate.domainExperience && (
+                      <li className="flex items-start gap-2">
+                        <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                        <span>{candidate.domainExperience}</span>
+                      </li>
+                    )}
+                    {(!candidate.technologies || candidate.technologies.length === 0) && !candidate.domainExperience && (
+                      <p className="text-muted-foreground">Expertise details not provided</p>
+                    )}
                   </ul>
                 </Card>
 
@@ -212,64 +392,144 @@ export function ResourceProfile() {
                   <Card className="p-6">
                     <h3 className="mb-4">Certifications</h3>
                     <div className="space-y-4">
-                      {certifications.map((cert, index) => (
-                        <div key={index} className="flex gap-3">
-                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <Award className="h-5 w-5 text-primary" />
+                      {candidate.certifications && candidate.certifications.length > 0 ? (
+                        candidate.certifications.map((cert, index) => (
+                          <div key={index} className="flex gap-3">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <Award className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm">{cert}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {cert.includes('Appian') ? 'Appian' : 'Professional'} • Recent
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold text-sm">{cert.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {cert.issuer} • {cert.year}
-                            </p>
-                          </div>
+                        ))
+                      ) : (
+                        <div className="space-y-4">
+                          {staticCertifications.map((cert, index) => (
+                            <div key={index} className="flex gap-3">
+                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <Award className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-sm">{cert.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {cert.issuer} • {cert.year}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                          <p className="text-xs text-muted-foreground italic">
+                            * Sample certifications shown
+                          </p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </Card>
 
                   <Card className="p-6">
-                    <h3 className="mb-4">Languages</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span>English</span>
-                        <span className="text-muted-foreground">Native</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Spanish</span>
-                        <span className="text-muted-foreground">
-                          Professional
-                        </span>
-                      </div>
+                    <h3 className="mb-4">Education</h3>
+                    <div className="space-y-3">
+                      {candidate.educations && candidate.educations.length > 0 ? (
+                        candidate.educations.map((edu, index) => (
+                          <div key={index} className="flex items-start gap-3">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <CheckCircle className="h-4 w-4 text-primary" />
+                            </div>
+                            <p className="text-sm">{edu}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <>
+                          {candidate.college && (
+                            <div className="flex items-start gap-3">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                <CheckCircle className="h-4 w-4 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium">{candidate.college}</p>
+                                {candidate.university && (
+                                  <p className="text-xs text-muted-foreground">{candidate.university}</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {!candidate.college && (
+                            <p className="text-sm text-muted-foreground">Education details not provided</p>
+                          )}
+                        </>
+                      )}
                     </div>
                   </Card>
                 </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="portfolio">
+            <TabsContent value="experience">
               <div className="space-y-6">
-                {portfolio.map((project, index) => (
-                  <Card key={index} className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="mb-1">{project.title}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {project.client}
-                        </p>
-                      </div>
-                      <Badge variant="outline">{project.duration}</Badge>
-                    </div>
-                    <p className="text-muted-foreground mb-4">
-                      {project.description}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {project.technologies.map((tech) => (
-                        <SkillBadge key={tech} skill={tech} variant="secondary" />
+                {/* Work Experience */}
+                <Card className="p-6">
+                  <h3 className="mb-4">Work Experience</h3>
+                  {candidate.workExperiences && candidate.workExperiences.length > 0 ? (
+                    <div className="space-y-4">
+                      {candidate.workExperiences.map((exp, index) => (
+                        <div key={index} className="border-l-2 border-primary pl-4 py-3">
+                          <p className="font-semibold">{exp}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {exp.includes(' at ') ? exp.split(' at ')[1] : 'Previous role'}
+                          </p>
+                        </div>
                       ))}
                     </div>
-                  </Card>
-                ))}
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="border-l-2 border-primary pl-4 py-3">
+                        <p className="font-semibold">Senior Developer at TechCorp</p>
+                        <p className="text-sm text-muted-foreground mt-1">Full-time • 3 years</p>
+                      </div>
+                      <div className="border-l-2 border-primary pl-4 py-3">
+                        <p className="font-semibold">Lead Developer at Solutions Inc</p>
+                        <p className="text-sm text-muted-foreground mt-1">Full-time • 4 years</p>
+                      </div>
+                      <p className="text-xs text-muted-foreground italic">
+                        * Sample work experience shown
+                      </p>
+                    </div>
+                  )}
+                </Card>
+
+                {/* Portfolio */}
+                <Card className="p-6">
+                  <h3 className="mb-4">Portfolio & Projects</h3>
+                  <div className="space-y-6">
+                    {staticPortfolio.map((project, index) => (
+                      <div key={index} className="pb-4 border-b last:border-0 last:pb-0">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="mb-1">{project.title}</h4>
+                            <p className="text-sm text-muted-foreground">
+                              {project.client}
+                            </p>
+                          </div>
+                          <Badge variant="outline">{project.duration}</Badge>
+                        </div>
+                        <p className="text-muted-foreground mb-4">
+                          {project.description}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {project.technologies.map((tech) => (
+                            <SkillBadge key={tech} skill={tech} variant="secondary" />
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-xs text-muted-foreground italic">
+                      * Sample portfolio projects shown
+                    </p>
+                  </div>
+                </Card>
               </div>
             </TabsContent>
 
@@ -283,21 +543,31 @@ export function ResourceProfile() {
                         <DollarSign className="h-5 w-5 text-muted-foreground" />
                         <span>Hourly Rate</span>
                       </div>
-                      <span className="font-semibold">$95/hour</span>
+                      <span className="font-semibold">{candidate.rate || '$85/hour'}</span>
                     </div>
                     <div className="flex items-center justify-between py-3 border-b">
                       <span>Part-Time (20 hrs/week)</span>
-                      <span className="font-semibold">$7,600/month</span>
+                      <span className="font-semibold">
+                        {candidate.rate ? 
+                          `$${parseInt(candidate.rate.replace(/[^0-9]/g, '')) * 20 * 4}` : 
+                          '$6,800'
+                        }/month
+                      </span>
                     </div>
                     <div className="flex items-center justify-between py-3">
                       <span>Full-Time</span>
-                      <span className="font-semibold">$15,200/month</span>
+                      <span className="font-semibold">
+                        {candidate.rate ? 
+                          `$${parseInt(candidate.rate.replace(/[^0-9]/g, '')) * 40 * 4}` : 
+                          '$13,600'
+                        }/month
+                      </span>
                     </div>
                   </div>
                   <div className="mt-6 p-4 bg-muted rounded-lg">
                     <p className="text-sm text-muted-foreground">
-                      * Rates are negotiable based on project scope and
-                      duration. Long-term contracts may qualify for discounts.
+                      * Rates are negotiable based on project scope and duration. 
+                      Long-term contracts may qualify for discounts.
                     </p>
                   </div>
                 </Card>
@@ -309,10 +579,10 @@ export function ResourceProfile() {
                       <CheckCircle className="h-6 w-6 text-green-600" />
                       <div>
                         <p className="font-semibold text-green-900">
-                          Available Now
+                          {candidate.availability || 'Available Now'}
                         </p>
                         <p className="text-sm text-green-700">
-                          Can start immediately
+                          Can start within 1-2 weeks
                         </p>
                       </div>
                     </div>
@@ -323,7 +593,7 @@ export function ResourceProfile() {
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>Timezone: EST (UTC-5)</span>
+                        <span>Timezone: Based on {candidate.city || 'client'} timezone</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         <Briefcase className="h-4 w-4 text-muted-foreground" />
@@ -338,17 +608,17 @@ export function ResourceProfile() {
             <TabsContent value="reviews">
               <div className="grid md:grid-cols-3 gap-6 mb-6">
                 <Card className="p-6 text-center">
-                  <p className="text-4xl font-semibold mb-2">4.9</p>
+                  <p className="text-4xl font-semibold mb-2">{candidate.rating?.toFixed(1) || '4.9'}</p>
                   <div className="flex justify-center gap-1 mb-2">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
-                        className="h-5 w-5 fill-yellow-400 text-yellow-400"
+                        className={`h-5 w-5 ${i < Math.floor(candidate.rating || 4.9) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
                       />
                     ))}
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Based on 47 reviews
+                    Based on {candidate.reviews || 47} reviews
                   </p>
                 </Card>
                 <Card className="p-6 text-center">
@@ -366,7 +636,7 @@ export function ResourceProfile() {
               </div>
 
               <div className="space-y-6">
-                {reviews.map((review, index) => (
+                {staticReviews.map((review, index) => (
                   <Card key={index} className="p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
@@ -400,6 +670,9 @@ export function ResourceProfile() {
                     <p className="text-muted-foreground">{review.comment}</p>
                   </Card>
                 ))}
+                <p className="text-xs text-muted-foreground italic text-center">
+                  * Sample reviews shown
+                </p>
               </div>
             </TabsContent>
           </Tabs>

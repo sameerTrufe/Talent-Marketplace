@@ -5,6 +5,7 @@ import { Card } from "../ui/card";
 import { ExpertCard } from "../ExpertCard"; 
 import { SkillBadge } from "../SkillBadge"; 
 import { Link } from "react-router";
+import { SimpleSearch } from "./SimpleSearch";
 import {
   Search,
   UserPlus,
@@ -548,7 +549,6 @@ export function LandingPage() {
     if (!response.ok) {
       throw new Error(`Search failed with status: ${response.status}`);
     }
-
     const data = await response.json();
     
     // Handle response - adjust based on response structure
@@ -1189,7 +1189,7 @@ const handleAdvancedSearch = async () => {
         </div>
       </header>
 
-      {/* Hero Section */}
+            {/* Hero Section */}
       <section className="bg-gradient-to-b from-primary/5 to-background py-20">
         <div className="container mx-auto px-4 max-w-6xl text-center">
           <h1 className="max-w-4xl mx-auto mb-6">
@@ -1200,6 +1200,8 @@ const handleAdvancedSearch = async () => {
             Power Apps talent. Hire verified experts or join as a certified
             professional.
           </p>
+          
+          {/* Original two buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
             <Button size="lg" asChild>
               <Link to="/auth">
@@ -1211,8 +1213,11 @@ const handleAdvancedSearch = async () => {
             </Button>
           </div>
 
+          {/* NEW: Simple Search Component */}
+          <SimpleSearch />
+
           {/* Enhanced Search Bar */}
-          <div className="max-w-3xl mx-auto">
+          <div className="max-w-3xl mx-auto mt-12">
             <Card className="p-4">
               <div className="flex gap-2">
                 <div className="relative flex-1">

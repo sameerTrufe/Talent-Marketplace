@@ -106,6 +106,3 @@ $WinREAgent/
 
 # Optional - if you're using TypeScript
 # *.tsbuildinfo
-
-# Optional - if you're using Jest
-# .jest/

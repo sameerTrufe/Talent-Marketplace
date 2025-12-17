@@ -2,8 +2,8 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { SkillBadge } from "./SkillBadge";
-import { MapPin, Star, Heart } from "lucide-react";
-import { Link } from "react-router";
+import { MapPin, Star, Heart, Eye } from "lucide-react";
+import { Link } from "react-router-dom"; // Changed from react-router to react-router-dom
 
 interface ExpertCardProps {
   id: string;
@@ -14,10 +14,11 @@ interface ExpertCardProps {
   rating: number;
   reviews: number;
   rate: string;
-  skills?: string[]; // Make skills optional
+  skills?: string[];
   experience: string;
   availability?: string;
   showActions?: boolean;
+  showProfileLink?: boolean; // Add this new prop
 }
 
 export function ExpertCard({
@@ -29,13 +30,30 @@ export function ExpertCard({
   rating,
   reviews,
   rate,
-  skills = [], // Default to empty array
+  skills = [],
   experience,
   availability,
   showActions = false,
+  showProfileLink = true, // Default to true
 }: ExpertCardProps) {
   return (
-    <Card className="p-6 hover:shadow-lg transition-shadow">
+    <Card className="p-6 hover:shadow-lg transition-shadow relative">
+      {/* View Profile Button - Always visible */}
+      {showProfileLink && (
+        <div className="absolute top-3 right-3 z-10">
+          <Button 
+            asChild 
+            variant="ghost" 
+            size="sm" 
+            className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm hover:bg-background"
+          >
+            <Link to={`/client/resource/${id}`} title="View Profile">
+              <Eye className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      )}
+      
       <div className="flex gap-4">
         <Avatar className="h-16 w-16">
           <AvatarImage src={image} alt={name} />
@@ -44,7 +62,7 @@ export function ExpertCard({
         <div className="flex-1">
           <div className="flex items-start justify-between">
             <div>
-              <h3 className="font-semibold">{name}</h3>
+              <h3 className="font-semibold text-lg">{name}</h3>
               <p className="text-muted-foreground">{role}</p>
             </div>
             {showActions && (
@@ -64,7 +82,7 @@ export function ExpertCard({
             </div>
           </div>
           
-          {/* Skills section with better handling */}
+          {/* Skills section */}
           <div className="mt-3">
             {Array.isArray(skills) && skills.length > 0 ? (
               <div className="flex flex-wrap gap-2">
@@ -88,15 +106,39 @@ export function ExpertCard({
               {availability && (
                 <p className="text-sm text-green-600 mt-1">{availability}</p>
               )}
-            </div> 
+            </div>
+            <div className="text-lg font-semibold text-primary">
+              {rate}
+            </div>
           </div>
+          
+          {/* Action Buttons - Only when showActions is true */}
           {showActions && (
             <div className="flex gap-2 mt-4">
               <Button asChild className="flex-1">
-                <Link to={`/client/resource/${id}`}>View Profile</Link>
+                <Link to={`/client/resource/${id}`}>
+                  View Profile
+                </Link>
               </Button>
               <Button variant="outline" className="flex-1">
                 Shortlist
+              </Button>
+            </div>
+          )}
+          
+          {/* Small View Profile Link for non-showActions mode */}
+          {!showActions && showProfileLink && (
+            <div className="mt-4 pt-3 border-t">
+              <Button 
+                asChild 
+                variant="ghost" 
+                size="sm" 
+                className="w-full"
+              >
+                <Link to={`/client/resource/${id}`} className="flex items-center justify-center gap-2">
+                  <Eye className="h-3 w-3" />
+                  View Full Profile
+                </Link>
               </Button>
             </div>
           )}
