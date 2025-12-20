@@ -5,7 +5,6 @@ import { Card } from "../ui/card";
 import { ExpertCard } from "../ExpertCard"; 
 import { SkillBadge } from "../SkillBadge"; 
 import { Link } from "react-router";
-import { SimpleSearch } from "./SimpleSearch";
 import {
   Search,
   UserPlus,
@@ -18,19 +17,7 @@ import {
   Loader2,
   X,
   Filter,
-  ChevronDown,
-  MapPin,
-  Briefcase,
-  Globe,
-  SlidersHorizontal,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import { Badge } from "../ui/badge";
 
 // --- Types ---
@@ -45,28 +32,6 @@ interface Expert {
   rate: string;
   skills?: string[];
   experience: string;
-}
-
-interface SearchResponse {
-  content: Expert[];
-  totalPages: number;
-  totalElements: number;
-  pageNumber: number;
-  pageSize: number;
-  first: boolean;
-  last: boolean;
-  searchCriteria?: SearchCriteria;
-}
-
-interface SearchCriteria {
-  technologies?: string[];
-  domainExperience?: string;
-  minExperience?: number;
-  maxExperience?: number;
-  region?: string;
-  city?: string;
-  country?: string;
-  searchType?: string;
 }
 
 interface FilterOptions {
@@ -135,7 +100,47 @@ const API_BASE_URL = import.meta.env.DEV
   ? 'http://localhost:8080/api' 
   : '/api';
 
-// Helper function to generate mock data - SINGLE DEFINITION
+// Mock experts for fallback
+const mockExperts: Expert[] = [
+  {
+    id: "1",
+    name: "Sarah Johnson",
+    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&q=80",
+    role: "Senior Appian Developer",
+    location: "New York, USA",
+    rating: 4.9,
+    reviews: 47,
+    rate: "$125/hour",
+    skills: ["Appian", "Java", "BPM"],
+    experience: "8+ years experience"
+  },
+  {
+    id: "2",
+    name: "Michael Chen",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&fit=crop&q=80",
+    role: "OutSystems Expert",
+    location: "San Francisco, USA",
+    rating: 4.8,
+    reviews: 52,
+    rate: "$110/hour",
+    skills: ["OutSystems", ".NET", "Mobile"],
+    experience: "6+ years experience"
+  },
+  {
+    id: "3",
+    name: "Emily Rodriguez",
+    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&fit=crop&q=80",
+    role: "Mendix Specialist",
+    location: "Austin, USA",
+    rating: 5.0,
+    reviews: 63,
+    rate: "$135/hour",
+    skills: ["Mendix", "React", "AWS"],
+    experience: "10+ years experience"
+  },
+];
+
+// Helper function to generate mock data
 const generateMockExperts = (searchTerm: string, technologies: string[]): Expert[] => {
   const mockNames = [
     'Sarah Johnson', 'Michael Chen', 'Emily Rodriguez', 'David Kim', 
@@ -273,7 +278,7 @@ export function LandingPage() {
                 candidate.region || 'Remote'),
       rating: candidate.rating || 4.0 + Math.random() * 1.0,
       reviews: candidate.reviews || Math.floor(Math.random() * 100),
-      rate: hourlyRate || '$85',
+      rate: hourlyRate || '$85/hour',
       skills: skills.slice(0, 5),
       experience: candidate.experience || 
                  (candidate.totalExperienceYears ? 
@@ -313,439 +318,361 @@ export function LandingPage() {
     }
   };
 
-  // --- NEW: Comma-separated AND Search Function ---
- const handleCommaAndSearch = async () => {
-  setIsLoading(true);
-  setError(null);
-  setHasSearched(true);
-
-  try {
-    // Build search request object
-    const searchRequest: any = {
-      searchTerm: searchTerm.trim(),
-      page: 0,
-      size: 12,
-      searchType: "AND"
-    };
-
-    // Add technologies if selected
-    if (selectedTechnologies.length > 0) {
-      searchRequest.technologies = selectedTechnologies.join(',');
+  // --- Main Search Function (OR Logic - migrated from Search All) ---
+  const handleMainSearch = async () => {
+    if (!searchTerm.trim()) {
+      setError("Please enter a search term");
+      return;
     }
 
-    // Add other filters
-    if (domainExperience.trim()) {
-      searchRequest.domainExperience = domainExperience.trim();
-    }
-    if (city.trim()) {
-      searchRequest.city = city.trim();
-    }
-    if (country.trim()) {
-      searchRequest.country = country.trim();
-    }
-    if (region.trim()) {
-      searchRequest.region = region.trim();
-    }
-    if (minExperience !== '') {
-      searchRequest.minExperience = Number(minExperience);
-    }
-    if (maxExperience !== '') {
-      searchRequest.maxExperience = Number(maxExperience);
-    }
+    setIsLoading(true);
+    setError(null);
+    setHasSearched(true);
 
-    // Use the new comma-separated AND search endpoint
-    const response = await fetch(`${API_BASE_URL}/candidates/search/comma-and`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(searchRequest)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Search failed: ${response.status} - ${errorText}`);
-    }
-
-    const searchResponse = await response.json();
-    
-    // Handle response according to your SearchResponseDTO structure
-    const candidates = searchResponse.results?.content || [];
-    const normalizedExperts = candidates.map(normalizeCandidate);
-    
-    setSearchResults(normalizedExperts);
-    setSearchStats({
-      totalResults: searchResponse.metadata?.totalResults || 
-                    searchResponse.results?.totalElements || 0,
-      currentPage: searchResponse.metadata?.currentPage || 
-                   searchResponse.results?.number || 0,
-      totalPages: searchResponse.metadata?.totalPages || 
-                  searchResponse.results?.totalPages || 0
-    });
-
-    console.log("AND Search Results:", normalizedExperts.length, "candidates found");
-
-  } catch (err) {
-    console.error("Comma AND search error:", err);
-    
-    // Fallback to direct GET call
     try {
-      // Try the simple GET endpoint
-      const params = new URLSearchParams();
-      if (searchTerm.trim()) {
-        params.append("q", searchTerm.trim());
-      }
-      if (selectedTechnologies.length > 0) {
-        params.append("technologies", selectedTechnologies.join(','));
-      }
+      console.log(`Searching (OR logic) for: ${searchTerm}`);
       
-      const fallbackResponse = await fetch(
-        `${API_BASE_URL}/candidates/search/comma-simple?${params.toString()}&page=0&size=12`,
+      // Use the simple-or-search endpoint for OR logic across all fields
+      const response = await fetch(
+        `${API_BASE_URL}/candidates/simple-or-search?q=${encodeURIComponent(searchTerm.trim())}&page=0&size=50`,
         {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
+            'Content-Type': 'application/json',
           },
+          credentials: 'include'
         }
       );
-      
-      if (fallbackResponse.ok) {
-        const fallbackData = await fallbackResponse.json();
-        const candidates = fallbackData.content || fallbackData.results?.content || [];
-        const normalizedExperts = candidates.map(normalizeCandidate);
+
+      console.log('Response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Search response data:', data);
         
+        let candidates = [];
+        if (data.content && Array.isArray(data.content)) {
+          candidates = data.content;
+        } else if (Array.isArray(data)) {
+          candidates = data;
+        }
+
+        const normalizedExperts = candidates.map(normalizeCandidate);
         setSearchResults(normalizedExperts);
+
+        // Update search stats
         setSearchStats({
-          totalResults: fallbackData.totalElements || fallbackData.results?.totalElements || 0,
-          currentPage: fallbackData.number || fallbackData.results?.number || 0,
-          totalPages: fallbackData.totalPages || fallbackData.results?.totalPages || 0
+          totalResults: data.totalElements || normalizedExperts.length,
+          currentPage: data.number || 0,
+          totalPages: data.totalPages || 1
+        });
+
+        if (normalizedExperts.length === 0) {
+          setError("No candidates found. Try a different search term.");
+        }
+      } else {
+        // Fallback to mock data
+        console.log('Backend failed, using mock data');
+        const filteredMock = mockExperts.filter(expert => 
+          expert.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          expert.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          expert.skills?.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
+        
+        setSearchResults(filteredMock);
+        setSearchStats({
+          totalResults: filteredMock.length,
+          currentPage: 0,
+          totalPages: 1
         });
         
-        setError(null); // Clear error since fallback worked
-        return;
+        if (filteredMock.length === 0) {
+          setError("No candidates found. Try a different search term.");
+        }
       }
-    } catch (fallbackErr) {
-      console.error("Fallback search also failed:", fallbackErr);
-    }
-    
-    // Final fallback to mock data with correct AND logic filtering
-    const mockExperts = generateMockExperts(searchTerm, selectedTechnologies);
-    
-    // Filter mock data to simulate AND logic
-    const filteredMockExperts = mockExperts.filter(expert => {
-      if (selectedTechnologies.length > 0) {
-        // Check if expert has ALL selected technologies (case-insensitive)
-        return selectedTechnologies.every(tech => 
-          expert.skills?.some(skill => 
-            skill.toLowerCase().includes(tech.toLowerCase()) ||
-            tech.toLowerCase().includes(skill.toLowerCase())
-          )
-        );
-      }
-      // If no technologies selected but search term has comma, filter by terms
-      if (searchTerm.includes(',')) {
-        const searchTerms = searchTerm.split(',').map(term => term.trim().toLowerCase());
-        return searchTerms.every(term => 
-          expert.name.toLowerCase().includes(term) ||
-          expert.role.toLowerCase().includes(term) ||
-          expert.skills?.some(skill => skill.toLowerCase().includes(term)) ||
-          expert.experience.toLowerCase().includes(term)
-        );
-      }
-      return true;
-    });
-    
-    setSearchResults(filteredMockExperts);
-    setSearchStats({
-      totalResults: filteredMockExperts.length,
-      currentPage: 0,
-      totalPages: 1
-    });
-    
-    setError("Backend search failed, showing filtered mock data. Error: " + (err instanceof Error ? err.message : 'Unknown error'));
-  } finally {
-    setIsLoading(false);
-  }
-};
 
-  // --- Main Search Function (Updated with AND logic detection) --- 
-  const handleSearch = async (useAdvancedFilters = false) => {
-  // Check if we should use comma-separated AND search
-  const shouldUseCommaAndSearch = 
-    (searchTerm.includes(',') && searchTerm.trim().length >= 2) || 
-    (selectedTechnologies.length > 1);
-  
-  if (shouldUseCommaAndSearch) {
-    // Use the new AND logic for comma-separated search
-    await handleCommaAndSearch();
-    return;
-  }
-
-  const shouldUseAdvancedFilters = useAdvancedFilters || hasActiveAdvancedFilters();
-
-  setIsLoading(true);
-  setError(null);
-  setHasSearched(true);
-
-  try {
-    // Build search parameters
-    const params = new URLSearchParams();
-    
-    // Add search term if provided
-    if (searchTerm.trim()) {
-      params.append("q", searchTerm.trim());
-    }
-
-    // Add advanced filters if active
-    if (shouldUseAdvancedFilters) {
-      if (selectedTechnologies.length > 0) {
-        params.append("technologies", selectedTechnologies.join(','));
-      }
-      if (domainExperience.trim()) {
-        params.append("domainExperience", domainExperience.trim());
-      }
-      if (minExperience !== '') {
-        params.append("minExperience", minExperience.toString());
-      }
-      if (maxExperience !== '') {
-        params.append("maxExperience", maxExperience.toString());
-      }
-      if (region.trim()) {
-        params.append("region", region.trim());
-      }
-      if (city.trim()) {
-        params.append("city", city.trim());
-      }
-      if (country.trim()) {
-        params.append("country", country.trim());
-      }
-    }
-
-    // If no search criteria at all, show featured experts
-    if (params.toString() === '') {
-      setSearchResults(featuredExperts);
+    } catch (err) {
+      console.error("Search error:", err);
+      
+      // Fallback to mock data
+      const filteredMock = mockExperts.filter(expert => 
+        expert.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expert.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expert.skills?.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+      
+      setSearchResults(filteredMock);
       setSearchStats({
-        totalResults: featuredExperts.length,
+        totalResults: filteredMock.length,
         currentPage: 0,
         totalPages: 1
       });
+      setError("Backend connection failed. Showing mock data.");
+      
+    } finally {
       setIsLoading(false);
-      return;
-    }
-
-    // Build URL
-    const searchUrl = `${API_BASE_URL}/candidates/search?${params.toString()}&page=0&size=12`;
-    
-    console.log("Making search request to:", searchUrl);
-
-    const response = await fetch(searchUrl, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Search failed with status: ${response.status}`);
-    }
-    const data = await response.json();
-    
-    // Handle response - adjust based on response structure
-    let candidates = [];
-    let totalResults = 0;
-    let currentPage = 0;
-    let totalPages = 0;
-    
-    if (data.results && Array.isArray(data.results.content)) {
-      // New structure with metadata
-      candidates = data.results.content;
-      totalResults = data.metadata?.totalResults || data.results.totalElements || 0;
-      currentPage = data.metadata?.currentPage || data.results.number || 0;
-      totalPages = data.metadata?.totalPages || data.results.totalPages || 0;
-    } else if (data.content && Array.isArray(data.content)) {
-      // Old Spring Data Page structure
-      candidates = data.content;
-      totalResults = data.totalElements || 0;
-      currentPage = data.number || 0;
-      totalPages = data.totalPages || 0;
-    } else if (Array.isArray(data)) {
-      // Array response
-      candidates = data;
-      totalResults = data.length;
-      currentPage = 0;
-      totalPages = 1;
-    }
-    
-    const normalizedExperts = candidates.map(normalizeCandidate);
-    setSearchResults(normalizedExperts);
-    setSearchStats({
-      totalResults,
-      currentPage,
-      totalPages
-    });
-
-  } catch (err) {
-    console.error("Search error:", err);
-    
-    // Fallback to mock data
-    const mockExperts = generateMockExperts(searchTerm, selectedTechnologies);
-    setSearchResults(mockExperts);
-    setSearchStats({
-      totalResults: mockExperts.length,
-      currentPage: 0,
-      totalPages: 1
-    });
-    
-    if (import.meta.env.DEV) {
-      setError("Development mode: Showing mock data. " + (err instanceof Error ? err.message : ''));
-    } else {
-      setError("Search failed. Please try again.");
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-  // Add this helper function
-  const handleSearchResponse = (data: any) => {
-    console.log("Search response:", data);
-    
-    // Handle the response - Spring Data Page format
-    if (data.content && Array.isArray(data.content)) {
-      const normalizedExperts = data.content.map(normalizeCandidate);
-      setSearchResults(normalizedExperts);
-      setSearchStats({
-        totalResults: data.totalElements || 0,
-        currentPage: data.number || 0,
-        totalPages: data.totalPages || 0
-      });
-    } 
-    // Handle array response
-    else if (Array.isArray(data)) {
-      const normalizedExperts = data.map(normalizeCandidate);
-      setSearchResults(normalizedExperts);
-      setSearchStats({
-        totalResults: normalizedExperts.length,
-        currentPage: 0,
-        totalPages: 1
-      });
-    }
-    // Handle custom response format
-    else if (data.results && Array.isArray(data.results)) {
-      const normalizedExperts = data.results.map(normalizeCandidate);
-      setSearchResults(normalizedExperts);
-      setSearchStats({
-        totalResults: data.total || data.totalElements || normalizedExperts.length,
-        currentPage: data.page || 0,
-        totalPages: data.totalPages || 1
-      });
-    } else {
-      // Fallback to empty results
-      setSearchResults([]);
-      setSearchStats({
-        totalResults: 0,
-        currentPage: 0,
-        totalPages: 0
-      });
     }
   };
 
-  // Enhanced search handler in LandingPage.tsx
-// In LandingPage.tsx, update the handleAdvancedSearch function:
-const handleAdvancedSearch = async () => {
-  setIsLoading(true);
-  setError(null);
-  setHasSearched(true);
-
-  try {
-    // Build search request with proper AND logic for cross-field filtering
-    const searchRequest: any = {
-      searchTerm: searchTerm.trim(),
-      searchType: "AND", // Force AND for cross-field filtering
-      page: 0,
-      size: 12
-    };
-
-    // Handle technologies (comma-separated)
-    if (selectedTechnologies.length > 0) {
-      searchRequest.technologies = selectedTechnologies.join(',');
-    }
+  // --- Original Search Function (for Apply Filters button - unchanged) ---
+  const handleSearch = async (useAdvancedFilters = false) => {
+    // Check if we should use comma-separated AND search
+    const shouldUseCommaAndSearch = 
+      (searchTerm.includes(',') && searchTerm.trim().length >= 2) || 
+      (selectedTechnologies.length > 1);
     
-    // Handle domain experience
-    if (domainExperience.trim()) {
-      searchRequest.domainExperience = domainExperience.trim();
-    }
-    
-    // Handle location fields - use AND between different location fields
-    const locationFilters = [];
-    if (city.trim()) {
-      searchRequest.city = city.trim();
-      locationFilters.push(`City: ${city.trim()}`);
-    }
-    if (country.trim()) {
-      searchRequest.country = country.trim();
-      locationFilters.push(`Country: ${country.trim()}`);
-    }
-    if (region.trim()) {
-      searchRequest.region = region.trim();
-      locationFilters.push(`Region: ${region.trim()}`);
-    }
-    
-    // Handle experience range
-    if (minExperience !== '') searchRequest.minExperience = Number(minExperience);
-    if (maxExperience !== '') searchRequest.maxExperience = Number(maxExperience);
-
-    console.log("Advanced search request:", searchRequest);
-
-    // Use the v2 search endpoint which supports AND logic
-    const response = await fetch(`${API_BASE_URL}/candidates/search/v2`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      credentials: 'include',
-      body: JSON.stringify(searchRequest)
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Search failed: ${response.status} - ${errorText}`);
+    if (shouldUseCommaAndSearch) {
+      // Use the new AND logic for comma-separated search
+      await handleCommaAndSearch();
+      return;
     }
 
-    const searchResponse = await response.json();
-    
-    console.log("Search response:", searchResponse);
-    
-    const candidates = searchResponse.results?.content || 
-                      searchResponse.content || 
-                      searchResponse.results || [];
-    
-    const normalizedExperts = candidates.map(normalizeCandidate);
-    
-    setSearchResults(normalizedExperts);
-    setSearchStats({
-      totalResults: searchResponse.metadata?.totalResults || 
-                    searchResponse.totalElements || 
-                    normalizedExperts.length,
-      currentPage: searchResponse.metadata?.currentPage || 
-                   searchResponse.number || 0,
-      totalPages: searchResponse.metadata?.totalPages || 
-                  searchResponse.totalPages || 1
-    });
+    const shouldUseAdvancedFilters = useAdvancedFilters || hasActiveAdvancedFilters();
 
-  } catch (err) {
-    handleSearchError(err);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    setIsLoading(true);
+    setError(null);
+    setHasSearched(true);
 
-  // Update the handleKeyDown function to ensure it uses the right function
+    try {
+      // Build search parameters
+      const params = new URLSearchParams();
+      
+      // Add search term if provided
+      if (searchTerm.trim()) {
+        params.append("q", searchTerm.trim());
+      }
+
+      // Add advanced filters if active
+      if (shouldUseAdvancedFilters) {
+        if (selectedTechnologies.length > 0) {
+          params.append("technologies", selectedTechnologies.join(','));
+        }
+        if (domainExperience.trim()) {
+          params.append("domainExperience", domainExperience.trim());
+        }
+        if (minExperience !== '') {
+          params.append("minExperience", minExperience.toString());
+        }
+        if (maxExperience !== '') {
+          params.append("maxExperience", maxExperience.toString());
+        }
+        if (region.trim()) {
+          params.append("region", region.trim());
+        }
+        if (city.trim()) {
+          params.append("city", city.trim());
+        }
+        if (country.trim()) {
+          params.append("country", country.trim());
+        }
+      }
+
+      // If no search criteria at all, show featured experts
+      if (params.toString() === '') {
+        setSearchResults(featuredExperts);
+        setSearchStats({
+          totalResults: featuredExperts.length,
+          currentPage: 0,
+          totalPages: 1
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Build URL
+      const searchUrl = `${API_BASE_URL}/candidates/search?${params.toString()}&page=0&size=12`;
+      
+      console.log("Making search request to:", searchUrl);
+
+      const response = await fetch(searchUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Search failed with status: ${response.status}`);
+      }
+      const data = await response.json();
+      
+      // Handle response - adjust based on response structure
+      let candidates = [];
+      let totalResults = 0;
+      let currentPage = 0;
+      let totalPages = 0;
+      
+      if (data.results && Array.isArray(data.results.content)) {
+        // New structure with metadata
+        candidates = data.results.content;
+        totalResults = data.metadata?.totalResults || data.results.totalElements || 0;
+        currentPage = data.metadata?.currentPage || data.results.number || 0;
+        totalPages = data.metadata?.totalPages || data.results.totalPages || 0;
+      } else if (data.content && Array.isArray(data.content)) {
+        // Old Spring Data Page structure
+        candidates = data.content;
+        totalResults = data.totalElements || 0;
+        currentPage = data.number || 0;
+        totalPages = data.totalPages || 0;
+      } else if (Array.isArray(data)) {
+        // Array response
+        candidates = data;
+        totalResults = data.length;
+        currentPage = 0;
+        totalPages = 1;
+      }
+      
+      const normalizedExperts = candidates.map(normalizeCandidate);
+      setSearchResults(normalizedExperts);
+      setSearchStats({
+        totalResults,
+        currentPage,
+        totalPages
+      });
+
+    } catch (err) {
+      console.error("Search error:", err);
+      
+      // Fallback to mock data
+      const mockExpertsData = generateMockExperts(searchTerm, selectedTechnologies);
+      setSearchResults(mockExpertsData);
+      setSearchStats({
+        totalResults: mockExpertsData.length,
+        currentPage: 0,
+        totalPages: 1
+      });
+      
+      if (import.meta.env.DEV) {
+        setError("Development mode: Showing mock data. " + (err instanceof Error ? err.message : ''));
+      } else {
+        setError("Search failed. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- Comma-separated AND Search Function (unchanged) ---
+  const handleCommaAndSearch = async () => {
+    setIsLoading(true);
+    setError(null);
+    setHasSearched(true);
+
+    try {
+      // Build search request object
+      const searchRequest: any = {
+        searchTerm: searchTerm.trim(),
+        page: 0,
+        size: 12,
+        searchType: "AND"
+      };
+
+      // Add technologies if selected
+      if (selectedTechnologies.length > 0) {
+        searchRequest.technologies = selectedTechnologies.join(',');
+      }
+
+      // Add other filters
+      if (domainExperience.trim()) {
+        searchRequest.domainExperience = domainExperience.trim();
+      }
+      if (city.trim()) {
+        searchRequest.city = city.trim();
+      }
+      if (country.trim()) {
+        searchRequest.country = country.trim();
+      }
+      if (region.trim()) {
+        searchRequest.region = region.trim();
+      }
+      if (minExperience !== '') {
+        searchRequest.minExperience = Number(minExperience);
+      }
+      if (maxExperience !== '') {
+        searchRequest.maxExperience = Number(maxExperience);
+      }
+
+      // Use the new comma-separated AND search endpoint
+      const response = await fetch(`${API_BASE_URL}/candidates/search/comma-and`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(searchRequest)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Search failed: ${response.status} - ${errorText}`);
+      }
+
+      const searchResponse = await response.json();
+      
+      // Handle response according to your SearchResponseDTO structure
+      const candidates = searchResponse.results?.content || [];
+      const normalizedExperts = candidates.map(normalizeCandidate);
+      
+      setSearchResults(normalizedExperts);
+      setSearchStats({
+        totalResults: searchResponse.metadata?.totalResults || 
+                      searchResponse.results?.totalElements || 0,
+        currentPage: searchResponse.metadata?.currentPage || 
+                     searchResponse.results?.number || 0,
+        totalPages: searchResponse.metadata?.totalPages || 
+                    searchResponse.results?.totalPages || 0
+      });
+
+      console.log("AND Search Results:", normalizedExperts.length, "candidates found");
+
+    } catch (err) {
+      console.error("Comma AND search error:", err);
+      
+      // Final fallback to mock data with correct AND logic filtering
+      const mockExpertsData = generateMockExperts(searchTerm, selectedTechnologies);
+      
+      // Filter mock data to simulate AND logic
+      const filteredMockExperts = mockExpertsData.filter(expert => {
+        if (selectedTechnologies.length > 0) {
+          // Check if expert has ALL selected technologies (case-insensitive)
+          return selectedTechnologies.every(tech => 
+            expert.skills?.some(skill => 
+              skill.toLowerCase().includes(tech.toLowerCase()) ||
+              tech.toLowerCase().includes(skill.toLowerCase())
+            )
+          );
+        }
+        // If no technologies selected but search term has comma, filter by terms
+        if (searchTerm.includes(',')) {
+          const searchTerms = searchTerm.split(',').map(term => term.trim().toLowerCase());
+          return searchTerms.every(term => 
+            expert.name.toLowerCase().includes(term) ||
+            expert.role.toLowerCase().includes(term) ||
+            expert.skills?.some(skill => skill.toLowerCase().includes(term)) ||
+            expert.experience.toLowerCase().includes(term)
+          );
+        }
+        return true;
+      });
+      
+      setSearchResults(filteredMockExperts);
+      setSearchStats({
+        totalResults: filteredMockExperts.length,
+        currentPage: 0,
+        totalPages: 1
+      });
+      
+      setError("Backend search failed, showing filtered mock data. Error: " + (err instanceof Error ? err.message : 'Unknown error'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleSearch(hasActiveAdvancedFilters());
+      handleMainSearch();
     }
   };
 
@@ -786,7 +713,7 @@ const handleAdvancedSearch = async () => {
     setSelectedTechnologies(prev => prev.filter(t => t !== tech));
   };
 
-  // --- NEW: Check if we're using AND logic for search hint ---
+  // --- Search hint ---
   const getSearchHint = () => {
     if (searchTerm.includes(',') && searchTerm.trim().length >= 2) {
       return "ⓘ Using AND logic for comma-separated terms (all terms must match)";
@@ -796,6 +723,9 @@ const handleAdvancedSearch = async () => {
     }
     if (searchTerm.length > 0 && searchTerm.length < 3 && !hasActiveAdvancedFilters()) {
       return "ⓘ Enter at least 3 characters for text search, or use filters";
+    }
+    if (searchTerm.length >= 3 && !hasActiveAdvancedFilters()) {
+      return "ⓘ Using OR logic - searching across all fields";
     }
     return null;
   };
@@ -1128,6 +1058,11 @@ const handleAdvancedSearch = async () => {
                   Using AND logic for multiple technologies
                 </p>
               )}
+              {!hasActiveAdvancedFilters() && !searchTerm.includes(',') && selectedTechnologies.length <= 1 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Using OR logic across all fields
+                </p>
+              )}
             </div>
             {hasSearched && (
               <Button
@@ -1189,7 +1124,7 @@ const handleAdvancedSearch = async () => {
         </div>
       </header>
 
-            {/* Hero Section */}
+      {/* Hero Section */}
       <section className="bg-gradient-to-b from-primary/5 to-background py-20">
         <div className="container mx-auto px-4 max-w-6xl text-center">
           <h1 className="max-w-4xl mx-auto mb-6">
@@ -1212,9 +1147,6 @@ const handleAdvancedSearch = async () => {
               <Link to="/auth">Join as Expert</Link>
             </Button>
           </div>
-
-          {/* NEW: Simple Search Component */}
-          <SimpleSearch />
 
           {/* Enhanced Search Bar */}
           <div className="max-w-3xl mx-auto mt-12">
@@ -1239,8 +1171,8 @@ const handleAdvancedSearch = async () => {
                   )}
                 </div>
                 <Button 
-                  onClick={() => handleSearch(hasActiveAdvancedFilters())}
-                  disabled={isLoading || (!searchTerm.trim() && !hasActiveAdvancedFilters())}
+                  onClick={handleMainSearch}
+                  disabled={isLoading || !searchTerm.trim()}
                 >
                   {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1270,7 +1202,7 @@ const handleAdvancedSearch = async () => {
                     key={skill}
                     onClick={() => {
                       setSearchTerm(skill);
-                      handleSearch(false);
+                      handleMainSearch();
                     }}
                   >
                     <SkillBadge skill={skill} variant="outline" />
