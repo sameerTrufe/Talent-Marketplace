@@ -1,82 +1,126 @@
-import { cn } from "../lib/utils";
-import { Link, useLocation } from "react-router";
-import {
-  LayoutDashboard,
-  FileText,
-  Users,
-  Heart,
-  MessageSquare,
-  FileCheck,
-  CreditCard,
+import React from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+  Home, 
+  User, 
+  Briefcase, 
+  FileText, 
+  MessageSquare, 
   Settings,
-} from "lucide-react";
+  LogOut,
+  Bell,
+  BarChart,
+  ClipboardCheck
+} from 'lucide-react';
+import { Button } from './ui/button';
 
 interface SidebarProps {
-  role?: "client" | "admin";
+  role: 'candidate' | 'client' | 'admin' | 'hr';
 }
 
-const clientNavItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/client/dashboard" },
-  { icon: FileText, label: "Post Requirement", path: "/client/post-requirement" },
-  { icon: Users, label: "Browse Resources", path: "/client/browse" },
-  { icon: Heart, label: "Shortlist", path: "/client/shortlist" },
-  { icon: MessageSquare, label: "Messages", path: "/client/messaging" },
-  { icon: FileCheck, label: "Contracts", path: "/client/contracts" },
-  { icon: CreditCard, label: "Billing", path: "/client/billing" },
-];
-
-const adminNavItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
-  { icon: Users, label: "Users", path: "/admin/users" },
-  { icon: FileText, label: "Requirements", path: "/admin/requirements" },
-  { icon: FileCheck, label: "Contracts", path: "/admin/contracts" },
-  { icon: CreditCard, label: "Payments", path: "/admin/payments" },
-  { icon: Settings, label: "Reports", path: "/admin/reports" },
-];
-
-export function Sidebar({ role = "client" }: SidebarProps) {
+export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
   const location = useLocation();
-  const navItems = role === "admin" ? adminNavItems : clientNavItems;
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const getNavItems = () => {
+    switch (role) {
+      case 'candidate':
+        return [
+          { path: '/candidate/dashboard', icon: Home, label: 'Dashboard' },
+          { path: '/candidate/profile/edit', icon: User, label: 'My Profile' },
+          { path: '/candidate/jobs', icon: Briefcase, label: 'Jobs' },
+          { path: '/candidate/applications', icon: FileText, label: 'Applications' },
+          { path: '/candidate/interviews', icon: ClipboardCheck, label: 'Interviews' },
+          { path: '/candidate/messages', icon: MessageSquare, label: 'Messages' },
+          { path: '/candidate/analytics', icon: BarChart, label: 'Analytics' },
+          { path: '/candidate/settings', icon: Settings, label: 'Settings' },
+        ];
+      case 'client':
+        return [
+          { path: '/client/dashboard', icon: Home, label: 'Dashboard' },
+          { path: '/client/browse', icon: Briefcase, label: 'Browse Talent' },
+          { path: '/client/post-requirement', icon: FileText, label: 'Post Requirement' },
+          { path: '/client/messages', icon: MessageSquare, label: 'Messages' },
+          { path: '/client/contracts', icon: ClipboardCheck, label: 'Contracts' },
+          { path: '/client/settings', icon: Settings, label: 'Settings' },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  const navItems = getNavItems();
 
   return (
-    <div className="w-64 border-r bg-background h-screen sticky top-0 flex flex-col">
+    <div className="h-screen w-64 bg-background border-r flex flex-col">
+      {/* Logo */}
       <div className="p-6 border-b">
-        <h2 className="font-semibold">TalentHub</h2>
-        <p className="text-sm text-muted-foreground">Low-Code Marketplace</p>
+        <h1 className="text-xl font-bold text-primary">TalentHub</h1>
+        <p className="text-sm text-muted-foreground capitalize">{role} Portal</p>
       </div>
-      <nav className="flex-1 p-4">
-        <ul className="space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-2 rounded-lg transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "hover:bg-accent"
-                  )}
-                >
-                  <Icon className="h-5 w-5" />
-                  <span>{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+
+      {/* User Info */}
+      <div className="p-4 border-b">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+            {user?.image ? (
+              <img src={user.image} alt={user.username} className="h-10 w-10 rounded-full" />
+            ) : (
+              <User className="h-5 w-5 text-primary" />
+            )}
+          </div>
+          <div>
+            <p className="font-medium text-sm">{user?.fullName || user?.username}</p>
+            <p className="text-xs text-muted-foreground">{user?.email}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.path;
+          
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                isActive
+                  ? 'bg-primary text-primary-foreground font-medium'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          );
+        })}
       </nav>
-      <div className="p-4 border-t">
-        <Link
-          to="/settings"
-          className="flex items-center gap-3 px-4 py-2 rounded-lg hover:bg-accent transition-colors"
+
+      {/* Bottom Section */}
+      <div className="p-4 border-t space-y-2">
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+          onClick={handleLogout}
         >
-          <Settings className="h-5 w-5" />
-          <span>Settings</span>
-        </Link>
+          <LogOut className="h-4 w-4 mr-3" />
+          Logout
+        </Button>
       </div>
     </div>
   );
-}
+};

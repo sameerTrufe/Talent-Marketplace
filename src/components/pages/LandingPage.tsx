@@ -28,8 +28,7 @@ interface Expert {
   role: string;
   location: string;
   rating: number;
-  reviews: number;
-  rate: string;
+  reviews: number; 
   skills?: string[];
   experience: string;
 }
@@ -40,46 +39,6 @@ interface FilterOptions {
   regions: string[];
   experienceRange: [number, number];
 }
-
-// --- Constants ---
-const featuredExperts: Expert[] = [
-  {
-    id: "1",
-    name: "Sarah Johnson",
-    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400",
-    role: "Senior Appian Developer",
-    location: "New York, USA",
-    rating: 4.9,
-    reviews: 47,
-    rate: "$95",
-    skills: ["Appian", "BPM", "Process Mining"],
-    experience: "8+ years experience",
-  },
-  {
-    id: "2",
-    name: "Michael Chen",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
-    role: "OutSystems Expert",
-    location: "San Francisco, USA",
-    rating: 5.0,
-    reviews: 63,
-    rate: "$110",
-    skills: ["OutSystems", "Mobile Apps", "Integration"],
-    experience: "10+ years experience",
-  },
-  {
-    id: "3",
-    name: "Emily Rodriguez",
-    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
-    role: "Mendix Specialist",
-    location: "Austin, USA",
-    rating: 4.8,
-    reviews: 52,
-    rate: "$85",
-    skills: ["Mendix", "Low-Code", "Microservices"],
-    experience: "6+ years experience",
-  },
-];
 
 const howItWorks = [
   { icon: UserPlus, step: "1", title: "Create Account", description: "Sign up as a client or expert in minutes" },
@@ -109,8 +68,7 @@ const mockExperts: Expert[] = [
     role: "Senior Appian Developer",
     location: "New York, USA",
     rating: 4.9,
-    reviews: 47,
-    rate: "$125/hour",
+    reviews: 47, 
     skills: ["Appian", "Java", "BPM"],
     experience: "8+ years experience"
   },
@@ -121,8 +79,7 @@ const mockExperts: Expert[] = [
     role: "OutSystems Expert",
     location: "San Francisco, USA",
     rating: 4.8,
-    reviews: 52,
-    rate: "$110/hour",
+    reviews: 52, 
     skills: ["OutSystems", ".NET", "Mobile"],
     experience: "6+ years experience"
   },
@@ -133,8 +90,7 @@ const mockExperts: Expert[] = [
     role: "Mendix Specialist",
     location: "Austin, USA",
     rating: 5.0,
-    reviews: 63,
-    rate: "$135/hour",
+    reviews: 63, 
     skills: ["Mendix", "React", "AWS"],
     experience: "10+ years experience"
   },
@@ -171,14 +127,15 @@ const generateMockExperts = (searchTerm: string, technologies: string[]): Expert
     role: mockRoles[index % mockRoles.length],
     location: mockLocations[index % mockLocations.length],
     rating: 4.5 + Math.random() * 0.5,
-    reviews: Math.floor(Math.random() * 50) + 10,
-    rate: `$${80 + Math.floor(Math.random() * 40)}`,
+    reviews: Math.floor(Math.random() * 50) + 10, 
     skills: [filteredSkills[index % filteredSkills.length], ...filteredSkills.slice(0, 2)],
     experience: `${5 + index}+ years experience`
   }));
 };
 
 export function LandingPage() {
+  const [featuredExperts, setFeaturedExperts] = useState<Expert[]>([]);
+  const [loadingFeatured, setLoadingFeatured] = useState(false);
   const [techInput, setTechInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Expert[]>([]);
@@ -214,6 +171,7 @@ export function LandingPage() {
   // --- Load filter options on component mount ---
   useEffect(() => {
     loadFilterOptions();
+    fetchFeaturedExperts();
   }, []);
 
   const loadFilterOptions = async () => {
@@ -241,6 +199,125 @@ export function LandingPage() {
     }
   };
 
+  const fetchFeaturedExperts = async () => {
+    setLoadingFeatured(true);
+    try {
+      // First try the featured endpoint
+      const response = await fetch(
+        `${API_BASE_URL}/candidates/featured?size=3&page=0`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          credentials: 'include'
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Handle different response structures
+        let candidates = [];
+        if (data.content && Array.isArray(data.content)) {
+          candidates = data.content;
+        } else if (Array.isArray(data)) {
+          candidates = data;
+        } else if (data.results && Array.isArray(data.results)) {
+          candidates = data.results;
+        }
+        
+        const transformedExperts = candidates.map((candidate: any) => {
+          return normalizeCandidate(candidate);
+        });
+        
+        setFeaturedExperts(transformedExperts);
+      } else {
+        // Fallback to API search if featured endpoint doesn't exist
+        await fetchFeaturedFallback();
+      }
+    } catch (error) {
+      console.error('Error fetching featured experts:', error);
+      await fetchFeaturedFallback();
+    } finally {
+      setLoadingFeatured(false);
+    }
+  };
+
+  const fetchFeaturedFallback = async () => {
+    try {
+      // Try to get top-rated candidates as fallback
+      const response = await fetch(
+        `${API_BASE_URL}/candidates/search?sort=rating,desc&size=3&page=0`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+          credentials: 'include'
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        let candidates = [];
+        
+        if (data.content && Array.isArray(data.content)) {
+          candidates = data.content;
+        } else if (Array.isArray(data)) {
+          candidates = data;
+        }
+        
+        const transformedExperts = candidates.map((candidate: any) => {
+          return normalizeCandidate(candidate);
+        });
+        
+        setFeaturedExperts(transformedExperts);
+      } else {
+        // Final fallback to hardcoded data
+        setFeaturedExperts([
+          {
+            id: "1",
+            name: "Sarah Johnson",
+            image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400",
+            role: "Senior Appian Developer",
+            location: "New York, USA",
+            rating: 4.9,
+            reviews: 47,
+            skills: ["Appian", "BPM", "Process Mining"],
+            experience: "8+ years experience",
+          },
+          {
+            id: "2",
+            name: "Michael Chen",
+            image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400",
+            role: "OutSystems Expert",
+            location: "San Francisco, USA",
+            rating: 5.0,
+            reviews: 63,
+            skills: ["OutSystems", "Mobile Apps", "Integration"],
+            experience: "10+ years experience",
+          },
+          {
+            id: "3",
+            name: "Emily Rodriguez",
+            image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
+            role: "Mendix Specialist",
+            location: "Austin, USA",
+            rating: 4.8,
+            reviews: 52,
+            skills: ["Mendix", "Low-Code", "Microservices"],
+            experience: "6+ years experience",
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Error in featured fallback:', error);
+      // Use mockExperts as last resort
+      setFeaturedExperts(mockExperts.slice(0, 3));
+    }
+  };
+
   // --- Helper function to check if advanced filters are active ---
   const hasActiveAdvancedFilters = useCallback(() => {
     return selectedTechnologies.length > 0 ||
@@ -253,37 +330,35 @@ export function LandingPage() {
   }, [selectedTechnologies, domainExperience, minExperience, maxExperience, region, city, country]);
 
   // Helper function to normalize candidate data
-  const normalizeCandidate = (candidate: any) => {
-    const skills = candidate.technologies || candidate.skills || [];
+  const normalizeCandidate = (candidate: any): Expert => {
+    const skills = candidate.technologies || candidate.skills || candidate.technologyList || [];
     
-    // Calculate hourly rate based on experience
-    let hourlyRate = candidate.rate;
-    if (!hourlyRate && candidate.experience) {
-      const expMatch = candidate.experience.match(/\d+/);
-      if (expMatch) {
-        const expYears = parseInt(expMatch[0]);
-        hourlyRate = `$${Math.min(expYears * 10 + 50, 200)}`; // Cap at $200/hour
-      }
+    // Extract experience from various possible fields
+    let experience = '';
+    if (candidate.experience) {
+      experience = candidate.experience;
+    } else if (candidate.yearsOfExperience) {
+      experience = `${candidate.yearsOfExperience}+ years experience`;
+    } else if (candidate.totalExperienceYears) {
+      experience = `${candidate.totalExperienceYears}+ years experience`;
+    } else {
+      experience = 'Experienced Professional';
     }
 
     return {
-      id: candidate.id?.toString() || `candidate-${Math.random()}`,
-      name: candidate.name || 'Unknown Expert',
-      image: candidate.image || `https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&q=80`,
-      role: candidate.role || 
+      id: candidate.id?.toString() || candidate.candidateId?.toString() || `candidate-${Math.random()}`,
+      name: candidate.name || candidate.fullName || 'Unknown Expert',
+      image: candidate.image || candidate.profilePicture || `https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&q=80`,
+      role: candidate.role || candidate.title || 
             (skills.length > 0 ? `${skills[0]} Developer` : 'Low-Code Expert'),
       location: candidate.location || 
                (candidate.city && candidate.country ? 
                 `${candidate.city}, ${candidate.country}` : 
                 candidate.region || 'Remote'),
-      rating: candidate.rating || 4.0 + Math.random() * 1.0,
-      reviews: candidate.reviews || Math.floor(Math.random() * 100),
-      rate: hourlyRate || '$85/hour',
-      skills: skills.slice(0, 5),
-      experience: candidate.experience || 
-                 (candidate.totalExperienceYears ? 
-                  `${candidate.totalExperienceYears}+ years experience` : 
-                  'Experienced Professional')
+      rating: candidate.rating || candidate.averageRating || 4.0 + Math.random() * 1.0,
+      reviews: candidate.reviews || candidate.totalReviews || Math.floor(Math.random() * 100), 
+      skills: Array.isArray(skills) ? skills.slice(0, 5) : [],
+      experience: experience
     };
   };
 
@@ -1114,11 +1189,8 @@ export function LandingPage() {
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <Link to="/auth">Login</Link>
-            </Button>
             <Button asChild>
-              <Link to="/auth">Get Started</Link>
+              <Link to="/login">Get Started</Link>
             </Button>
           </div>
         </div>
@@ -1237,18 +1309,32 @@ export function LandingPage() {
                 Top-rated certified professionals ready to work on your projects
               </p>
             </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredExperts.map((expert) => (
-                <ExpertCard key={expert.id} {...expert} />
-              ))}
-            </div>
-            <div className="text-center mt-8">
-              <Button variant="outline" size="lg" asChild>
-                <Link to="/client/browse">
-                  View All Experts <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </div>
+            
+            {loadingFeatured ? (
+              <div className="text-center py-8">
+                <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+                <p className="mt-2 text-primary">Loading featured experts...</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {featuredExperts.map((expert) => (
+                    <ExpertCard 
+                      key={expert.id} 
+                      {...expert}
+                      skills={expert.skills || []}
+                    />
+                  ))}
+                </div>
+                <div className="text-center mt-8">
+                  <Button variant="outline" size="lg" asChild>
+                    <Link to="/client/browse">
+                      View All Experts <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </section>
       )}
