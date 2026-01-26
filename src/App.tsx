@@ -12,7 +12,7 @@ import { BrowseResources } from './components/pages/BrowseResources';
 import { SimpleSearch } from './components/pages/SimpleSearch';
 
 // Import the new components
-import HRDashboard from './components/pages/dashboard/HRDashboard';
+import HRDashboard from './components/pages/dashboard/HRDashboard/HRDashboard';
 import CandidateDashboard from './components/pages/dashboard/CandidateDashboard';
 import Login from './components/pages/auth/Login';
 import Register from './components/pages/auth/Register';
@@ -128,7 +128,7 @@ function App() {
           
           {/* HR Manager Routes */}
           <Route element={<ProtectedRoute roles={['HR_MANAGER']} />}>
-            <Route path="/hr/dashboard" element={<HRDashboard />} />
+            <Route path="/hr/dashboard/HRDashboard" element={<HRDashboard />} />
           </Route>
            
           {/* Candidate Routes */}

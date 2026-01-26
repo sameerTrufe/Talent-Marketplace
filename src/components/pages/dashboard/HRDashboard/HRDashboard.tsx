@@ -1,26 +1,46 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Sidebar } from "../Sidebar";
-import { Button } from "../ui/button";
-import { Card } from "../ui/card";
-import { Input } from "../ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
-import { ExpertCard } from "../ExpertCard";
-import { SkillBadge } from "../SkillBadge";
-import { Link } from "react-router-dom";
-import { 
-  MessageSquare, 
-  Search, 
-  Filter, 
-  X, 
+import React, { useState, useEffect, useCallback } from 'react';  
+import { Sidebar } from "../../../Sidebar";
+import { Button } from "../../../ui/button";
+import { Card } from "../../../ui/card";
+import { Input } from "../../../ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../ui/avatar";
+import { Badge } from "../../../ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../../../ui/table";
+import {
+  Users,
+  FileText,
+  DollarSign,
+  TrendingUp,
+  CheckCircle,
+  Clock,
   AlertCircle,
+  UserCheck,
+  MessageSquare,
+  Search,
+  Filter,
+  Download,
+  Plus,
+  Calendar,
+  Briefcase,
+  Check,
+  X,
+  MoreVertical,
+  ArrowRight,
   Loader2,
   MapPin,
   Star,
+  Heart,
   Eye,
-  ChevronDown,
-  ChevronUp
 } from "lucide-react";
+import { SkillBadge } from "../../../SkillBadge";
+import { Link } from "react-router-dom";
 import { useAuth } from '@/contexts/AuthContext';
 
 // --- Types ---
@@ -34,12 +54,10 @@ interface Candidate {
   reviews: number; 
   skills?: string[];
   experience: string;
-  availability?: string;
   status?: string;
   email?: string;
   matchScore?: number;
   lastUpdated?: string;
-  rate?: string;
 }
 
 // --- API Endpoint --- 
@@ -47,7 +65,57 @@ const API_BASE_URL = import.meta.env.DEV
   ? 'http://localhost:8080/api' 
   : '/api';
 
-export function BrowseResources() {
+const statsCards = [
+  {
+    title: "Active Candidates",
+    value: "1,247",
+    change: "+12% from last month",
+    icon: Users,
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+  },
+  {
+    title: "Open Positions",
+    value: "87",
+    change: "+8 this week",
+    icon: Briefcase,
+    color: "text-purple-600",
+    bgColor: "bg-purple-50",
+  },
+  {
+    title: "Interviews Scheduled",
+    value: "156",
+    change: "+23 this month",
+    icon: Calendar,
+    color: "text-green-600",
+    bgColor: "bg-green-50",
+  },
+  {
+    title: "Placements",
+    value: "42",
+    change: "+18% this month",
+    icon: CheckCircle,
+    color: "text-orange-600",
+    bgColor: "bg-orange-50",
+  },
+];
+
+const quickActions = [
+  { title: "Post New Requirement", icon: Plus, color: "text-blue-600", bgColor: "bg-blue-50" },
+  { title: "Search Candidates", icon: Search, color: "text-purple-600", bgColor: "bg-purple-50" },
+  { title: "Schedule Interview", icon: Calendar, color: "text-green-600", bgColor: "bg-green-50" },
+  { title: "Generate Reports", icon: Download, color: "text-orange-600", bgColor: "bg-orange-50" },
+];
+
+// --- Filter Options Interface ---
+interface FilterOptions {
+  technologies: string[];
+  locations: string[];
+  regions: string[];
+  experienceRange: [number, number];
+}
+
+const HRDashboard: React.FC = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<Candidate[]>([]);
@@ -71,28 +139,16 @@ export function BrowseResources() {
   const [region, setRegion] = useState("");
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
-  const [availability, setAvailability] = useState("");
-  const [certification, setCertification] = useState("");
   const [searchType, setSearchType] = useState<"AND" | "OR">("OR");
   const [techInput, setTechInput] = useState("");
 
   // --- Filter Options State ---
-  const [filterOptions, setFilterOptions] = useState<{
-    technologies: string[];
-    locations: string[];
-    regions: string[];
-    experienceRange: [number, number];
-    availabilities: string[];
-    certifications: string[];
-  }>({
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
     technologies: [],
     locations: [],
     regions: [],
-    experienceRange: [0, 20],
-    availabilities: ['Available Now', 'Available in 1 week', 'Available in 2 weeks', 'Available in 1 month'],
-    certifications: ['Certified', 'Advanced Certified', 'Expert Certified']
+    experienceRange: [0, 20]
   });
-  
   const [isLoadingFilters, setIsLoadingFilters] = useState(false);
 
   // --- Load filter options on component mount ---
@@ -111,13 +167,12 @@ export function BrowseResources() {
       });
       if (response.ok) {
         const data = await response.json();
-        setFilterOptions(prev => ({
-          ...prev,
+        setFilterOptions({
           technologies: data.technologies || [],
           locations: data.locations || [],
           regions: data.regions || [],
           experienceRange: data.experienceRange || [0, 20]
-        }));
+        });
       }
     } catch (err) {
       console.error("Failed to load filter options:", err);
@@ -142,13 +197,6 @@ export function BrowseResources() {
       experience = 'Experienced Professional';
     }
 
-    // Generate hourly rate if not present
-    let rate = candidate.rate || candidate.hourlyRate;
-    if (!rate) {
-      const baseRate = 50 + Math.random() * 100;
-      rate = `$${Math.round(baseRate)}`;
-    }
-
     return {
       id: candidate.id?.toString() || candidate.candidateId?.toString() || `candidate-${Math.random()}`,
       name: candidate.name || candidate.fullName || 'Unknown Candidate',
@@ -163,12 +211,10 @@ export function BrowseResources() {
       reviews: candidate.reviews || candidate.totalReviews || Math.floor(Math.random() * 100), 
       skills: Array.isArray(skills) ? skills.slice(0, 5) : [],
       experience: experience,
-      availability: candidate.availability || 'Available Now',
       status: candidate.status || 'Available',
       email: candidate.email,
       matchScore: candidate.matchScore || Math.floor(Math.random() * 20) + 80,
-      lastUpdated: candidate.lastUpdated || 'Recently',
-      rate: rate
+      lastUpdated: candidate.lastUpdated || 'Recently'
     };
   };
 
@@ -180,12 +226,10 @@ export function BrowseResources() {
            maxExperience !== "" ||
            region.trim() !== "" ||
            city.trim() !== "" ||
-           country.trim() !== "" ||
-           availability !== "" ||
-           certification !== "";
-  }, [selectedTechnologies, domainExperience, minExperience, maxExperience, region, city, country, availability, certification]);
+           country.trim() !== "";
+  }, [selectedTechnologies, domainExperience, minExperience, maxExperience, region, city, country]);
 
-  // --- Main Search Function ---
+  // --- Main Search Function (OR Logic) - Same as LandingPage ---
   const handleMainSearch = async () => {
     if (!searchTerm.trim() && !hasActiveAdvancedFilters()) {
       setError("Please enter a search term");
@@ -197,18 +241,101 @@ export function BrowseResources() {
     setHasSearched(true);
 
     try {
-      console.log(`Searching for: ${searchTerm}`);
+      console.log(`Searching (OR logic) for: ${searchTerm}`);
       
-      // Check if we should use comma-separated AND search
-      const shouldUseCommaAndSearch = 
-        (searchTerm.includes(',') && searchTerm.trim().length >= 2) || 
-        (selectedTechnologies.length > 1);
-      
-      if (shouldUseCommaAndSearch) {
-        await handleCommaAndSearch();
-        return;
+      // Use the simple-or-search endpoint for OR logic across all fields
+      const response = await fetch(
+        `${API_BASE_URL}/candidates/simple-or-search?q=${encodeURIComponent(searchTerm.trim())}&page=0&size=50`,
+        {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include'
+        }
+      );
+
+      console.log('Response status:', response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Search response data:', data);
+        
+        let candidates = [];
+        if (data.content && Array.isArray(data.content)) {
+          candidates = data.content;
+        } else if (Array.isArray(data)) {
+          candidates = data;
+        }
+
+        const normalizedCandidates = candidates.map(normalizeCandidate);
+        setSearchResults(normalizedCandidates);
+
+        // Update search stats
+        setSearchStats({
+          totalResults: data.totalElements || normalizedCandidates.length,
+          currentPage: data.number || 0,
+          totalPages: data.totalPages || 1
+        });
+
+        if (normalizedCandidates.length === 0) {
+          setError("No candidates found. Try a different search term.");
+        }
+      } else {
+        // Fallback to mock data
+        console.log('Backend failed, using mock data');
+        const mockCandidates = generateMockCandidates(searchTerm);
+        setSearchResults(mockCandidates);
+        setSearchStats({
+          totalResults: mockCandidates.length,
+          currentPage: 0,
+          totalPages: 1
+        });
+        
+        if (mockCandidates.length === 0) {
+          setError("No candidates found. Try a different search term.");
+        }
       }
 
+    } catch (err) {
+      console.error("Search error:", err);
+      
+      // Fallback to mock data
+      const mockCandidates = generateMockCandidates(searchTerm);
+      setSearchResults(mockCandidates);
+      setSearchStats({
+        totalResults: mockCandidates.length,
+        currentPage: 0,
+        totalPages: 1
+      });
+      setError("Backend connection failed. Showing mock data.");
+      
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // --- Advanced Search Function ---
+  const handleSearch = async (useAdvancedFilters = false) => {
+    // Check if we should use comma-separated AND search
+    const shouldUseCommaAndSearch = 
+      (searchTerm.includes(',') && searchTerm.trim().length >= 2) || 
+      (selectedTechnologies.length > 1);
+    
+    if (shouldUseCommaAndSearch) {
+      // Use the new AND logic for comma-separated search
+      await handleCommaAndSearch();
+      return;
+    }
+
+    const shouldUseAdvancedFilters = useAdvancedFilters || hasActiveAdvancedFilters();
+
+    setIsLoading(true);
+    setError(null);
+    setHasSearched(true);
+
+    try {
       // Build search parameters
       const params = new URLSearchParams();
       
@@ -218,7 +345,7 @@ export function BrowseResources() {
       }
 
       // Add advanced filters if active
-      if (hasActiveAdvancedFilters()) {
+      if (shouldUseAdvancedFilters) {
         if (selectedTechnologies.length > 0) {
           params.append("technologies", selectedTechnologies.join(','));
         }
@@ -240,30 +367,23 @@ export function BrowseResources() {
         if (country.trim()) {
           params.append("country", country.trim());
         }
-        // Note: availability and certification filters will be added when backend supports them
       }
 
-      // If no search criteria at all, fetch all candidates
+      // If no search criteria at all, show all candidates
       if (params.toString() === '') {
-        const response = await fetch(`${API_BASE_URL}/candidates?page=0&size=12`, {
-          credentials: 'include',
+        // You might want to fetch all candidates here
+        setSearchResults([]);
+        setSearchStats({
+          totalResults: 0,
+          currentPage: 0,
+          totalPages: 1
         });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const candidates = data.content || data || [];
-          const normalizedCandidates = candidates.map(normalizeCandidate);
-          setSearchResults(normalizedCandidates);
-          setSearchStats({
-            totalResults: normalizedCandidates.length,
-            currentPage: 0,
-            totalPages: 1
-          });
-        }
+        setIsLoading(false);
+        setError("Please enter search criteria");
         return;
       }
 
-      // Build URL for search
+      // Build URL
       const searchUrl = `${API_BASE_URL}/candidates/search?${params.toString()}&page=0&size=12`;
       
       console.log("Making search request to:", searchUrl);
@@ -279,26 +399,28 @@ export function BrowseResources() {
       if (!response.ok) {
         throw new Error(`Search failed with status: ${response.status}`);
       }
-      
       const data = await response.json();
       
-      // Handle response structure
+      // Handle response - adjust based on response structure
       let candidates = [];
       let totalResults = 0;
       let currentPage = 0;
       let totalPages = 0;
       
       if (data.results && Array.isArray(data.results.content)) {
+        // New structure with metadata
         candidates = data.results.content;
         totalResults = data.metadata?.totalResults || data.results.totalElements || 0;
         currentPage = data.metadata?.currentPage || data.results.number || 0;
         totalPages = data.metadata?.totalPages || data.results.totalPages || 0;
       } else if (data.content && Array.isArray(data.content)) {
+        // Old Spring Data Page structure
         candidates = data.content;
         totalResults = data.totalElements || 0;
         currentPage = data.number || 0;
         totalPages = data.totalPages || 0;
       } else if (Array.isArray(data)) {
+        // Array response
         candidates = data;
         totalResults = data.length;
         currentPage = 0;
@@ -313,10 +435,6 @@ export function BrowseResources() {
         totalPages
       });
 
-      if (normalizedCandidates.length === 0) {
-        setError("No resources found. Try a different search term.");
-      }
-
     } catch (err) {
       console.error("Search error:", err);
       
@@ -329,8 +447,11 @@ export function BrowseResources() {
         totalPages: 1
       });
       
-      setError("Backend connection failed. Showing mock data.");
-      
+      if (import.meta.env.DEV) {
+        setError("Development mode: Showing mock data. " + (err instanceof Error ? err.message : ''));
+      } else {
+        setError("Search failed. Please try again.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -376,7 +497,7 @@ export function BrowseResources() {
         searchRequest.maxExperience = Number(maxExperience);
       }
 
-      // Use the comma-separated AND search endpoint
+      // Use the new comma-separated AND search endpoint
       const response = await fetch(`${API_BASE_URL}/candidates/search/comma-and`, {
         method: 'POST',
         headers: {
@@ -393,30 +514,32 @@ export function BrowseResources() {
 
       const searchResponse = await response.json();
       
-      // Handle response
-      const candidates = searchResponse.results?.content || searchResponse.content || [];
+      // Handle response according to your SearchResponseDTO structure
+      const candidates = searchResponse.results?.content || [];
       const normalizedCandidates = candidates.map(normalizeCandidate);
       
       setSearchResults(normalizedCandidates);
       setSearchStats({
         totalResults: searchResponse.metadata?.totalResults || 
-                      searchResponse.results?.totalElements || 
-                      normalizedCandidates.length,
+                      searchResponse.results?.totalElements || 0,
         currentPage: searchResponse.metadata?.currentPage || 
                      searchResponse.results?.number || 0,
         totalPages: searchResponse.metadata?.totalPages || 
-                    searchResponse.results?.totalPages || 1
+                    searchResponse.results?.totalPages || 0
       });
+
+      console.log("AND Search Results:", normalizedCandidates.length, "candidates found");
 
     } catch (err) {
       console.error("Comma AND search error:", err);
       
-      // Fallback to mock data
+      // Final fallback to mock data with correct AND logic filtering
       const mockCandidates = generateMockCandidates(searchTerm);
       
       // Filter mock data to simulate AND logic
       const filteredMockCandidates = mockCandidates.filter(candidate => {
         if (selectedTechnologies.length > 0) {
+          // Check if candidate has ALL selected technologies (case-insensitive)
           return selectedTechnologies.every(tech => 
             candidate.skills?.some(skill => 
               skill.toLowerCase().includes(tech.toLowerCase()) ||
@@ -424,6 +547,7 @@ export function BrowseResources() {
             )
           );
         }
+        // If no technologies selected but search term has comma, filter by terms
         if (searchTerm.includes(',')) {
           const searchTerms = searchTerm.split(',').map(term => term.trim().toLowerCase());
           return searchTerms.every(term => 
@@ -443,7 +567,7 @@ export function BrowseResources() {
         totalPages: 1
       });
       
-      setError("Backend search failed, showing filtered mock data.");
+      setError("Backend search failed, showing filtered mock data. Error: " + (err instanceof Error ? err.message : 'Unknown error'));
     } finally {
       setIsLoading(false);
     }
@@ -459,7 +583,8 @@ export function BrowseResources() {
     
     const mockRoles = [
       'Senior Appian Developer', 'OutSystems Expert', 'Mendix Specialist',
-      'Pega Architect', 'Power Apps Consultant', 'Low-Code Platform Expert'
+      'Pega Architect', 'Power Apps Consultant', 'Low-Code Platform Expert',
+      'Java Developer', 'React Developer', 'DevOps Engineer', 'Cloud Architect'
     ];
     
     const mockLocations = [
@@ -469,14 +594,18 @@ export function BrowseResources() {
     
     const mockSkills = [
       'Appian', 'OutSystems', 'Mendix', 'Pega', 'Power Apps',
-      'BPM', 'Low-Code', 'Process Automation', 'UI/UX'
+      'BPM', 'Low-Code', 'Process Automation', 'UI/UX', 'Java',
+      'React', 'AWS', 'Azure', 'DevOps', 'Microservices'
     ];
-
-    const mockAvailabilities = ['Available Now', 'Available in 1 week', 'Available in 2 weeks', 'Available in 1 month'];
     
-    return Array.from({ length: 6 }, (_, index) => ({
+    const filteredNames = mockNames.filter(name => 
+      name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      searchTerm.toLowerCase().includes(name.toLowerCase())
+    );
+    
+    return Array.from({ length: Math.min(8, filteredNames.length || 6) }, (_, index) => ({
       id: `mock-${index}`,
-      name: mockNames[index % mockNames.length],
+      name: filteredNames[index % filteredNames.length] || mockNames[index % mockNames.length],
       image: `https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&fit=crop&${index}`,
       role: mockRoles[index % mockRoles.length],
       location: mockLocations[index % mockLocations.length],
@@ -484,11 +613,9 @@ export function BrowseResources() {
       reviews: Math.floor(Math.random() * 50) + 10, 
       skills: [mockSkills[index % mockSkills.length], ...mockSkills.slice(0, 2)],
       experience: `${5 + index % 5}+ years experience`,
-      availability: mockAvailabilities[index % mockAvailabilities.length],
-      status: 'Available',
+      status: ['Available', 'Interviewing', 'Notice Period', 'Not Available'][index % 4],
       matchScore: Math.floor(Math.random() * 20) + 80,
-      lastUpdated: 'Recently',
-      rate: `$${Math.round(50 + Math.random() * 100)}`
+      lastUpdated: `${index + 1} hour${index === 0 ? '' : 's'} ago`
     }));
   };
 
@@ -519,8 +646,6 @@ export function BrowseResources() {
     setRegion("");
     setCity("");
     setCountry("");
-    setAvailability("");
-    setCertification("");
     setSearchType("OR");
   };
 
@@ -557,7 +682,9 @@ export function BrowseResources() {
 
   // --- Render active filters display ---
   const renderActiveFilters = () => {
-    if (!hasActiveAdvancedFilters()) return null;
+    const hasActiveFilters = hasActiveAdvancedFilters();
+
+    if (!hasActiveFilters) return null;
 
     return (
       <div className="mb-6 p-4 bg-muted/30 rounded-lg">
@@ -614,18 +741,9 @@ export function BrowseResources() {
               <X className="h-3 w-3 cursor-pointer" onClick={() => setCountry("")} />
             </Badge>
           )}
-          {availability && (
-            <Badge variant="secondary" className="gap-1">
-              Availability: {availability}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => setAvailability("")} />
-            </Badge>
-          )}
-          {certification && (
-            <Badge variant="secondary" className="gap-1">
-              Certification: {certification}
-              <X className="h-3 w-3 cursor-pointer" onClick={() => setCertification("")} />
-            </Badge>
-          )}
+          <Badge variant="outline">
+            Search Type: {searchType}
+          </Badge>
         </div>
       </div>
     );
@@ -780,36 +898,6 @@ export function BrowseResources() {
               onChange={(e) => setCountry(e.target.value)}
             />
           </div>
-
-          {/* Availability */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Availability</label>
-            <select 
-              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={availability}
-              onChange={(e) => setAvailability(e.target.value)}
-            >
-              <option value="">Select Availability</option>
-              {filterOptions.availabilities.map(avail => (
-                <option key={avail} value={avail}>{avail}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Certification */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Certification</label>
-            <select 
-              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={certification}
-              onChange={(e) => setCertification(e.target.value)}
-            >
-              <option value="">Select Certification</option>
-              {filterOptions.certifications.map(cert => (
-                <option key={cert} value={cert}>{cert}</option>
-              ))}
-            </select>
-          </div>
         </div>
 
         {/* Search type and actions */}
@@ -845,7 +933,7 @@ export function BrowseResources() {
             >
               Cancel
             </Button>
-            <Button onClick={handleMainSearch}>
+            <Button onClick={() => handleSearch(true)}>
               Apply Filters
             </Button>
           </div>
@@ -862,24 +950,26 @@ export function BrowseResources() {
       return (
         <div className="text-center mt-8 p-4">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-          <p className="mt-2 text-primary">Searching for resources...</p>
+          <p className="mt-2 text-primary">Searching for candidates...</p>
         </div>
       );
     }
 
     if (error) {
       return (
-        <Card className="p-6 bg-red-50 border-red-300 mt-8">
-          <div className="flex items-center gap-3 text-red-700">
-            <AlertCircle className="h-5 w-5" />
-            <div>
-              <p className="font-semibold">{error}</p>
-              {searchTerm.length < 3 && !hasActiveAdvancedFilters() && (
-                <p className="text-sm mt-1">Minimum 3 characters required for text search</p>
-              )}
+        <div className="container mx-auto px-4 max-w-6xl">
+          <Card className="p-6 bg-red-50 border-red-300 mt-8">
+            <div className="flex items-center gap-3 text-red-700">
+              <AlertCircle className="h-5 w-5" />
+              <div>
+                <p className="font-semibold">{error}</p>
+                {searchTerm.length < 3 && !hasActiveAdvancedFilters() && (
+                  <p className="text-sm mt-1">Minimum 3 characters required for text search</p>
+                )}
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </div>
       );
     }
 
@@ -887,7 +977,7 @@ export function BrowseResources() {
       return (
         <div className="text-center mt-8 p-8">
           <Search className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-4 text-lg font-semibold">No Resources Found</h3>
+          <h3 className="mt-4 text-lg font-semibold">No Candidates Found</h3>
           <p className="text-muted-foreground">
             Try adjusting your search criteria or filters.
           </p>
@@ -901,108 +991,194 @@ export function BrowseResources() {
     }
 
     return (
-      <div className="mt-8">
-        {/* Results Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <p className="text-muted-foreground">
-              Showing <span className="font-semibold text-foreground">{searchStats?.totalResults || searchResults.length}</span> results
-            </p>
-            {searchTerm.includes(',') && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Using AND logic for comma-separated terms
-              </p>
-            )}
-            {selectedTechnologies.length > 1 && !searchTerm.includes(',') && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Using AND logic for multiple technologies
-              </p>
-            )}
-            {!hasActiveAdvancedFilters() && !searchTerm.includes(',') && selectedTechnologies.length <= 1 && (
-              <p className="text-sm text-muted-foreground mt-1">
-                Using OR logic across all fields
-              </p>
+      <section className="py-8">
+        <div className="container mx-auto px-4 max-w-6xl">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-2xl font-bold">
+                Search Results ({searchStats?.totalResults || searchResults.length} candidates)
+              </h2>
+              {searchTerm.includes(',') && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Using AND logic for comma-separated terms
+                </p>
+              )}
+              {selectedTechnologies.length > 1 && !searchTerm.includes(',') && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Using AND logic for multiple technologies
+                </p>
+              )}
+              {!hasActiveAdvancedFilters() && !searchTerm.includes(',') && selectedTechnologies.length <= 1 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Using OR logic across all fields
+                </p>
+              )}
+            </div>
+            {hasSearched && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearSearch}
+                className="flex items-center gap-2"
+              >
+                <X className="h-4 w-4" />
+                Clear Search
+              </Button>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sort by:</span>
-            <select className="h-9 rounded-md border border-input bg-background px-3 text-sm">
-              <option>Relevance</option>
-              <option>Rating</option>
-              <option>Rate: Low to High</option>
-              <option>Rate: High to Low</option>
-              <option>Experience</option>
-            </select>
+          
+          {/* Active filters display */}
+          {renderActiveFilters()}
+        
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {searchResults.map((candidate) => (
+              <Card key={candidate.id} className="p-6 hover:shadow-lg transition-shadow relative">
+                {/* View Profile Button */}
+                <div className="absolute top-3 right-3 z-10">
+                  <Button 
+                    asChild 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 w-8 p-0 bg-background/80 backdrop-blur-sm hover:bg-background"
+                  >
+                    <Link to={`/client/resource/${candidate.id}`} title="View Profile">
+                      <Eye className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+                
+                <div className="flex gap-4">
+                  <Avatar className="h-16 w-16">
+                    <AvatarImage src={candidate.image} alt={candidate.name} />
+                    <AvatarFallback>{candidate.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-lg">{candidate.name}</h3>
+                        <p className="text-muted-foreground">{candidate.role}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {candidate.location}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        {candidate.rating.toFixed(1)} ({candidate.reviews} reviews)
+                      </div>
+                    </div>
+                    
+                    {/* Skills section */}
+                    <div className="mt-3">
+                      {candidate.skills && candidate.skills.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {candidate.skills.slice(0, 3).map((skill) => (
+                            <SkillBadge key={skill} skill={skill} />
+                          ))}
+                          {candidate.skills.length > 3 && (
+                            <span className="text-xs text-muted-foreground self-center">
+                              +{candidate.skills.length - 3} more
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">No skills listed</span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-4">
+                      <div>
+                        <p className="text-sm text-muted-foreground">{candidate.experience}</p>
+                        <Badge className={
+                          candidate.status === 'Available' ? 'bg-green-100 text-green-800' :
+                          candidate.status === 'Interviewing' ? 'bg-blue-100 text-blue-800' :
+                          candidate.status === 'Notice Period' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }>
+                          {candidate.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    
+                    {/* Match Score */}
+                    {candidate.matchScore && (
+                      <div className="mt-4">
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span>Match Score</span>
+                          <span className="font-semibold">{candidate.matchScore}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              candidate.matchScore >= 90 ? 'bg-green-500' :
+                              candidate.matchScore >= 80 ? 'bg-blue-500' :
+                              candidate.matchScore >= 70 ? 'bg-yellow-500' :
+                              'bg-red-500'
+                            }`}
+                            style={{ width: `${candidate.matchScore}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* View Profile Link */}
+                    <div className="mt-4 pt-3 border-t">
+                      <Button 
+                        asChild 
+                        variant="ghost" 
+                        size="sm" 
+                        className="w-full"
+                      >
+                        <Link to={`/client/resource/${candidate.id}`} className="flex items-center justify-center gap-2">
+                          <Eye className="h-3 w-3" />
+                          View Full Profile
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
         </div>
-
-        {/* Active filters display */}
-        {renderActiveFilters()}
-
-        {/* Expert Cards Grid */}
-        <div className="grid gap-6">
-          {searchResults.map((expert) => (
-            <ExpertCard 
-              key={expert.id} 
-              {...expert}
-              skills={expert.skills || []}
-              rate={expert.rate || "$95"}
-              availability={expert.availability}
-              showActions={true}
-              showProfileLink={true}
-            />
-          ))}
-        </div>
-
-        {/* Pagination */}
-        {searchStats && searchStats.totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-8">
-            <Button variant="outline" disabled={searchStats.currentPage === 0}>
-              Previous
-            </Button>
-            <Button variant="default">{searchStats.currentPage + 1}</Button>
-            {searchStats.currentPage + 1 < searchStats.totalPages && (
-              <Button variant="outline">{searchStats.currentPage + 2}</Button>
-            )}
-            {searchStats.currentPage + 2 < searchStats.totalPages && (
-              <Button variant="outline">{searchStats.currentPage + 3}</Button>
-            )}
-            <Button variant="outline" disabled={searchStats.currentPage === searchStats.totalPages - 1}>
-              Next
-            </Button>
-          </div>
-        )}
-      </div>
+      </section>
     );
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar role="client" />
+    <div className="flex min-h-screen bg-gray-50">
+      <Sidebar role="hr" />
+      
       <div className="flex-1 overflow-auto">
         {/* Header */}
-        <div className="border-b bg-background sticky top-0 z-10">
-          <div className="flex items-center justify-between p-6">
+        <div className="sticky top-0 z-10 border-b bg-white px-6 py-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">Browse Resources</h1>
-              <p className="text-muted-foreground">
-                Find certified low-code experts for your projects
+              <h1 className="text-2xl font-bold text-gray-900">HR Manager Dashboard</h1>
+              <p className="text-sm text-gray-600">
+                Welcome back{user?.name ? `, ${user.name}` : ''}! Manage your recruitment pipeline and candidates
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <Button variant="outline">
-                <MessageSquare className="h-4 w-4 mr-2" />
+              <Button variant="outline" size="sm" className="gap-2">
+                <Calendar className="h-4 w-4" />
+                Calendar
+              </Button>
+              <Button variant="outline" size="sm" className="gap-2">
+                <MessageSquare className="h-4 w-4" />
                 Messages
               </Button>
               <Avatar>
                 <AvatarImage src={user?.image || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400"} />
-                <AvatarFallback>{user?.name?.charAt(0) || 'C'}</AvatarFallback>
+                <AvatarFallback>{user?.name?.charAt(0) || 'HR'}</AvatarFallback>
               </Avatar>
             </div>
           </div>
-
-          {/* Search Bar */}
-          <div className="px-6 pb-6">
+          
+          {/* Enhanced Search Bar - Same as LandingPage */}
+          <div className="mt-4">
             <Card className="p-4">
               <div className="flex gap-2">
                 <div className="relative flex-1">
@@ -1040,7 +1216,7 @@ export function BrowseResources() {
                   className={hasActiveAdvancedFilters() ? "bg-primary text-primary-foreground" : ""}
                 >
                   <Filter className="mr-2 h-4 w-4" />
-                  {showAdvancedFilters ? 'Hide' : 'Show'} Filters
+                  Filters
                   {hasActiveAdvancedFilters() && (
                     <span className="ml-2 h-2 w-2 bg-white rounded-full"></span>
                   )}
@@ -1050,7 +1226,7 @@ export function BrowseResources() {
               {/* Quick search chips */}
               <div className="flex flex-wrap gap-2 mt-4">
                 <span className="text-sm text-muted-foreground">Popular:</span>
-                {['Appian', 'OutSystems', 'Mendix', 'Pega', 'Power Apps', 'AWS'].map((skill) => (
+                {['Appian', 'OutSystems', 'Mendix', 'Java', 'React', 'AWS'].map((skill) => (
                   <button
                     key={skill}
                     onClick={() => {
@@ -1070,7 +1246,7 @@ export function BrowseResources() {
                 </div>
               )}
               
-              {/* Advanced Filters */}
+              {/* Advanced Filters - Same as LandingPage */}
               {renderAdvancedFilters()}
             </Card>
           </div>
@@ -1078,48 +1254,123 @@ export function BrowseResources() {
 
         {/* Main Content */}
         <div className="p-6 max-w-7xl mx-auto">
+          {/* Show search results or dashboard content */}
           {hasSearched ? (
             renderSearchResults()
           ) : (
             <>
-              {/* Default content when no search */}
-              <div className="text-center py-12">
-                <Search className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                <h2 className="text-2xl font-bold mb-2">Find Your Perfect Resource</h2>
-                <p className="text-muted-foreground mb-6">
-                  Search for low-code experts by skills, experience, location, or use advanced filters
-                </p>
-                <div className="flex flex-wrap justify-center gap-4">
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm("Appian Developer");
-                      handleMainSearch();
-                    }}
-                  >
-                    Search Appian Developers
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => setShowAdvancedFilters(true)}
-                  >
-                    Open Advanced Filters
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm("");
-                      handleMainSearch();
-                    }}
-                  >
-                    Browse All Resources
-                  </Button>
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                {statsCards.map((stat) => {
+                  const Icon = stat.icon;
+                  return (
+                    <Card key={stat.title} className="border shadow-sm hover:shadow-md transition-shadow">
+                      <div className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className={`p-2 rounded-full ${stat.bgColor}`}>
+                            <Icon className={`h-6 w-6 ${stat.color}`} />
+                          </div>
+                          <Badge variant="outline" className="text-xs">
+                            {stat.change.includes('+') ? '▲' : '▼'} {stat.change.split(' ')[0]}
+                          </Badge>
+                        </div>
+                        <p className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
+                        <p className="text-sm text-gray-600">{stat.title}</p>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              {/* Quick Actions */}
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {quickActions.map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={action.title}
+                        className="bg-white border rounded-lg p-4 hover:border-blue-300 hover:shadow-sm transition-all text-left"
+                        onClick={() => {
+                          if (action.title === "Search Candidates") {
+                            // Focus on search input
+                            const searchInput = document.querySelector('input[placeholder*="Search candidates"]');
+                            if (searchInput) {
+                              (searchInput as HTMLInputElement).focus();
+                            }
+                          }
+                        }}
+                      >
+                        <div className={`p-2 rounded-full ${action.bgColor} w-fit mb-3`}>
+                          <Icon className={`h-5 w-5 ${action.color}`} />
+                        </div>
+                        <p className="font-medium text-gray-900">{action.title}</p>
+                        <p className="text-sm text-gray-500 mt-1">Click to start</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
+
+              {/* Recommended Actions */}
+              <Card className="mb-8">
+                <div className="p-6">
+                  <h2 className="text-xl font-semibold mb-4">Start Searching for Candidates</h2>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div className="text-center p-6 border rounded-lg">
+                      <Search className="h-12 w-12 text-blue-600 mx-auto mb-4" />
+                      <h3 className="font-semibold mb-2">Quick Search</h3>
+                      <p className="text-sm text-gray-600 mb-4">Find candidates by skills or technologies</p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => {
+                          setSearchTerm("Appian Developer");
+                          handleMainSearch();
+                        }}
+                      >
+                        Search Appian Developers
+                      </Button>
+                    </div>
+                    
+                    <div className="text-center p-6 border rounded-lg">
+                      <Filter className="h-12 w-12 text-purple-600 mx-auto mb-4" />
+                      <h3 className="font-semibold mb-2">Advanced Filters</h3>
+                      <p className="text-sm text-gray-600 mb-4">Use multiple filters for precise matches</p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => setShowAdvancedFilters(true)}
+                      >
+                        Open Filters
+                      </Button>
+                    </div>
+                    
+                    <div className="text-center p-6 border rounded-lg">
+                      <Users className="h-12 w-12 text-green-600 mx-auto mb-4" />
+                      <h3 className="font-semibold mb-2">View All Candidates</h3>
+                      <p className="text-sm text-gray-600 mb-4">Browse through all registered candidates</p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => {
+                          setSearchTerm("");
+                          handleMainSearch();
+                        }}
+                      >
+                        Browse All
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
             </>
           )}
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default HRDashboard;

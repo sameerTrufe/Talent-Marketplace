@@ -1,0 +1,130 @@
+.
+├── README.md
+├── build
+│   ├── assets
+│   │   ├── index-CYr70_A9.css
+│   │   └── index-CxCggGOb.js
+│   └── index.html
+├── full-structure.txt
+├── index.html
+├── package-lock.json
+├── package.json
+├── src
+│   ├── App.tsx
+│   ├── Attributions.md
+│   ├── components
+│   │   ├── ExpertCard.tsx
+│   │   ├── FilterBar.tsx
+│   │   ├── Sidebar.tsx
+│   │   ├── SkillBadge.tsx
+│   │   ├── common
+│   │   │   └── SessionExpiryWarning.tsx
+│   │   ├── figma
+│   │   │   └── ImageWithFallback.tsx
+│   │   ├── layout
+│   │   ├── pages
+│   │   │   ├── AdminDashboard.tsx
+│   │   │   ├── BrowseResources.tsx
+│   │   │   ├── ClientDashboard.tsx
+│   │   │   ├── ContractBilling.tsx
+│   │   │   ├── LandingPage.tsx
+│   │   │   ├── LoginSignup.tsx
+│   │   │   ├── Messaging.tsx
+│   │   │   ├── PostRequirement.tsx
+│   │   │   ├── ResourceProfile.tsx
+│   │   │   ├── SimpleSearch.tsx
+│   │   │   ├── admin
+│   │   │   │   └── UserManagement.tsx
+│   │   │   ├── auth
+│   │   │   │   ├── ForgotPassword.tsx
+│   │   │   │   ├── Login.tsx
+│   │   │   │   ├── ProtectedRoute.tsx
+│   │   │   │   ├── Register.tsx
+│   │   │   │   ├── ResetPassword.tsx
+│   │   │   │   ├── VerifyEmail.tsx
+│   │   │   │   └── VerifyMobileOTP.tsx
+│   │   │   └── dashboard
+│   │   │       ├── ApplicationsList.tsx
+│   │   │       ├── CandidateAnalytics.tsx
+│   │   │       ├── CandidateAssessments.tsx
+│   │   │       ├── CandidateDashboard.tsx
+│   │   │       ├── CandidateInterviews.tsx
+│   │   │       ├── CandidateJobs.tsx
+│   │   │       ├── CandidateMessages.tsx
+│   │   │       ├── CandidateProfile.tsx
+│   │   │       ├── CandidateProfileEdit.tsx
+│   │   │       ├── CandidateSettings.tsx
+│   │   │       └── HRDashboard.tsx
+│   │   └── ui
+│   │       ├── accordion.tsx
+│   │       ├── alert-dialog.tsx
+│   │       ├── alert.tsx
+│   │       ├── aspect-ratio.tsx
+│   │       ├── avatar.tsx
+│   │       ├── badge.tsx
+│   │       ├── breadcrumb.tsx
+│   │       ├── button.tsx
+│   │       ├── calendar.tsx
+│   │       ├── card.tsx
+│   │       ├── carousel.tsx
+│   │       ├── chart.tsx
+│   │       ├── checkbox.tsx
+│   │       ├── collapsible.tsx
+│   │       ├── command.tsx
+│   │       ├── context-menu.tsx
+│   │       ├── dialog.tsx
+│   │       ├── drawer.tsx
+│   │       ├── dropdown-menu.tsx
+│   │       ├── form.tsx
+│   │       ├── hover-card.tsx
+│   │       ├── input-otp.tsx
+│   │       ├── input.tsx
+│   │       ├── label.tsx
+│   │       ├── menubar.tsx
+│   │       ├── navigation-menu.tsx
+│   │       ├── pagination.tsx
+│   │       ├── popover.tsx
+│   │       ├── progress.tsx
+│   │       ├── radio-group.tsx
+│   │       ├── resizable.tsx
+│   │       ├── scroll-area.tsx
+│   │       ├── select.tsx
+│   │       ├── separator.tsx
+│   │       ├── sheet.tsx
+│   │       ├── sidebar.tsx
+│   │       ├── skeleton.tsx
+│   │       ├── slider.tsx
+│   │       ├── sonner.tsx
+│   │       ├── switch.tsx
+│   │       ├── table.tsx
+│   │       ├── tabs.tsx
+│   │       ├── textarea.tsx
+│   │       ├── toggle-group.tsx
+│   │       ├── toggle.tsx
+│   │       ├── tooltip.tsx
+│   │       ├── use-mobile.ts
+│   │       └── utils.ts
+│   ├── contexts
+│   │   └── AuthContext.tsx
+│   ├── guidelines
+│   │   └── Guidelines.md
+│   ├── hooks
+│   │   └── useSessionPersistence.ts
+│   ├── index.css
+│   ├── lib
+│   │   ├── api
+│   │   │   ├── AuthService.tsx
+│   │   │   ├── CandidateService.tsx
+│   │   │   ├── UserService.tsx
+│   │   │   └── apiClient.tsx
+│   │   └── utils.ts
+│   ├── main.tsx
+│   ├── styles
+│   │   └── globals.css
+│   ├── types
+│   │   └── index.tsx
+│   └── utils
+│       └── sessionManager.ts
+└── vite.config.ts
+
+21 directories, 107 files
