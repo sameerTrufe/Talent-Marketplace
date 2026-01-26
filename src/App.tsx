@@ -2,13 +2,13 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LandingPage } from './components/pages/LandingPage';
 import { LoginSignup } from './components/pages/LoginSignup';
-import { ClientDashboard } from './components/pages/ClientDashboard';
+import { ClientDashboard } from './components/pages/dashboard/HRDashboard/ClientDashboard';
 import { AdminDashboard } from './components/pages/AdminDashboard';
-import { Messaging } from './components/pages/Messaging';
-import { ContractBilling } from './components/pages/ContractBilling';
+import { Messaging } from './components/pages/dashboard/HRDashboard/Messaging';
+import { ContractBilling } from './components/pages/dashboard/HRDashboard/ContractBilling';
 import { ResourceProfile } from './components/pages/ResourceProfile';
-import { PostRequirement } from './components/pages/PostRequirement';
-import { BrowseResources } from './components/pages/BrowseResources'; 
+import { PostRequirement } from './components/pages/dashboard/HRDashboard/PostRequirement';
+import { BrowseResources } from './components/pages/dashboard/HRDashboard/BrowseResources'; 
 import { SimpleSearch } from './components/pages/SimpleSearch';
 
 // Import the new components

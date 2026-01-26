@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Sidebar } from "../Sidebar";
-import { Button } from "../ui/button";
-import { Card } from "../ui/card";
-import { Input } from "../ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
-import { ExpertCard } from "../ExpertCard";
-import { SkillBadge } from "../SkillBadge";
+import { Sidebar } from "../../../Sidebar";
+import { Button } from "../../../ui/button";
+import { Card } from "../../../ui/card";
+import { Input } from "../../../ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../ui/avatar";
+import { Badge } from "../../../ui/badge";
+import { ExpertCard } from "../../../ExpertCard";
+import { SkillBadge } from "../../../SkillBadge";
 import { Link } from "react-router-dom";
 import { 
   MessageSquare, 

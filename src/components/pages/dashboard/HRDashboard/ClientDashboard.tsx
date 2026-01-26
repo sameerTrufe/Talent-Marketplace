@@ -1,7 +1,7 @@
-import { Sidebar } from "../Sidebar";
-import { Card } from "../ui/card";
-import { Button } from "../ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Sidebar } from "../../../Sidebar";
+import { Button } from "../../../ui/button";
+import { Card } from "../../../ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../ui/avatar";
 import { Link } from "react-router";
 import {
   Users,

@@ -1,17 +1,17 @@
-import { Sidebar } from "../Sidebar";
-import { Button } from "../ui/button";
-import { Card } from "../ui/card";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
-import { Textarea } from "../ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { Sidebar } from "../../../Sidebar";
+import { Button } from "../../../ui/button";
+import { Card } from "../../../ui/card";
+import { Input } from "../../../ui/input";
+import { Label } from "../../../ui/label";
+import { Textarea } from "../../../ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../ui/avatar";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../ui/select";
+} from "../../../ui/select";
 import { MessageSquare, Upload, Plus, X } from "lucide-react";
 import { useState } from "react";
 

@@ -1,9 +1,9 @@
-import { Sidebar } from "../Sidebar";
-import { Button } from "../ui/button";
-import { Card } from "../ui/card";
-import { Input } from "../ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
+import { Sidebar } from "../../../Sidebar";
+import { Button } from "../../../ui/button";
+import { Card } from "../../../ui/card";
+import { Input } from "../../../ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../ui/avatar";
+import { Badge } from "../../../ui/badge";
 import {
   Search,
   Send,
@@ -33,25 +33,7 @@ const conversations = [
     time: "Yesterday",
     unread: 0,
     online: false,
-  },
-  {
-    id: 3,
-    name: "Emily Rodriguez",
-    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
-    lastMessage: "Thank you! Looking forward to working with you",
-    time: "2 days ago",
-    unread: 0,
-    online: true,
-  },
-  {
-    id: 4,
-    name: "David Park",
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400",
-    lastMessage: "The requirements look good. I have some questions",
-    time: "3 days ago",
-    unread: 1,
-    online: false,
-  },
+  }, 
 ];
 
 const messages = [

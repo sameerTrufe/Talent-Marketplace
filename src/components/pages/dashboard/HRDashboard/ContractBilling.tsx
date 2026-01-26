@@ -1,8 +1,8 @@
-import { Sidebar } from "../Sidebar";
-import { Button } from "../ui/button";
-import { Card } from "../ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
+import { Sidebar } from "../../../Sidebar";
+import { Button } from "../../../ui/button";
+import { Card } from "../../../ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../ui/avatar";
+import { Badge } from "../../../ui/badge";
 import {
   Table,
   TableBody,
@@ -10,7 +10,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
+} from "../../../ui/table";
 import {
   Download,
   FileText,
