@@ -13,7 +13,7 @@ import { SimpleSearch } from './components/pages/SimpleSearch';
 
 // Import the new components
 import HRDashboard from './components/pages/dashboard/HRDashboard/HRDashboard';
-import CandidateDashboard from './components/pages/dashboard/CandidateDashboard';
+import CandidateDashboard from './components/pages/dashboard/CandidateDashboard/CandidateDashboard';
 import Login from './components/pages/auth/Login';
 import Register from './components/pages/auth/Register';
 import ForgotPassword from './components/pages/auth/ForgotPassword';
@@ -22,17 +22,17 @@ import VerifyEmail from './components/pages/auth/VerifyEmail';
 import VerifyMobileOTP from './components/pages/auth/VerifyMobileOTP';
 import UserManagement from './components/pages/admin/UserManagement';
 import ProtectedRoute from './components/pages/auth/ProtectedRoute';
-import ApplicationsList from './components/pages/dashboard/ApplicationsList';
+import ApplicationsList from './components/pages/dashboard/CandidateDashboard/ApplicationsList';
 import { SessionExpiryWarning } from './components/common/SessionExpiryWarning';
 
 // Import new candidate components
-import CandidateProfileEdit from './components/pages/dashboard/CandidateProfileEdit';
-import CandidateJobs from './components/pages/dashboard/CandidateJobs';
-import CandidateMessages from './components/pages/dashboard/CandidateMessages';
-import CandidateAssessments from './components/pages/dashboard/CandidateAssessments';
-import CandidateAnalytics from './components/pages/dashboard/CandidateAnalytics';
-import CandidateSettings from './components/pages/dashboard/CandidateSettings';
-import CandidateInterviews from './components/pages/dashboard/CandidateInterviews';
+import CandidateProfileEdit from './components/pages/dashboard/CandidateDashboard/CandidateProfileEdit';
+import CandidateJobs from './components/pages/dashboard/CandidateDashboard/CandidateJobs';
+import CandidateMessages from './components/pages/dashboard/CandidateDashboard/CandidateMessages';
+import CandidateAssessments from './components/pages/dashboard/CandidateDashboard/CandidateAssessments';
+import CandidateAnalytics from './components/pages/dashboard/CandidateDashboard/CandidateAnalytics';
+import CandidateSettings from './components/pages/dashboard/CandidateDashboard/CandidateSettings';
+import CandidateInterviews from './components/pages/dashboard/CandidateDashboard/CandidateInterviews';
 
 // Import AuthProvider
 import { AuthProvider, useAuth } from './contexts/AuthContext';

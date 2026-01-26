@@ -11,7 +11,8 @@ import {
   LogOut,
   Bell,
   BarChart,
-  ClipboardCheck
+  ClipboardCheck,
+  ClipboardList
 } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role }) => {
           { path: '/candidate/applications', icon: FileText, label: 'Applications' },
           { path: '/candidate/interviews', icon: ClipboardCheck, label: 'Interviews' },
           { path: '/candidate/messages', icon: MessageSquare, label: 'Messages' },
+          { path: '/candidate/assessments', icon: ClipboardList, label: 'Assessments' },
           { path: '/candidate/analytics', icon: BarChart, label: 'Analytics' },
           { path: '/candidate/settings', icon: Settings, label: 'Settings' },
         ];

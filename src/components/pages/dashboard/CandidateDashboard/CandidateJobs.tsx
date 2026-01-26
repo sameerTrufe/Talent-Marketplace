@@ -112,14 +112,13 @@ const CandidateJobs: React.FC = () => {
                 <select className="h-10 rounded-md border border-input bg-background px-3">
                   <option value="">All Locations</option>
                   <option value="remote">Remote</option>
-                  <option value="new-york">New York</option>
-                  <option value="san-francisco">San Francisco</option>
+                  <option value="new-york">Hybrid</option>
+                  <option value="san-francisco">Onsite</option>
                 </select>
                 <select className="h-10 rounded-md border border-input bg-background px-3">
                   <option value="">All Types</option>
                   <option value="full-time">Full-time</option>
-                  <option value="contract">Contract</option>
-                  <option value="part-time">Part-time</option>
+                  <option value="contract">Contract</option> 
                 </select>
                 <Button variant="outline">
                   <Filter className="h-4 w-4 mr-2" />
