@@ -130,252 +130,159 @@ export interface RecommendedJob {
   jobType: string;
 }
 
+// Helper functions - moved outside the object
+const getFallbackProfile = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    const user = JSON.parse(userStr);
+    console.log('CandidateService: Using fallback data from localStorage user:', user);
+    return {
+      name: user.fullName || user.username || 'Candidate',
+      email: user.email,
+      title: 'Software Developer',
+      location: 'Remote',
+      profileCompletion: 60,
+      skills: ['JavaScript', 'React', 'Node.js'],
+      status: 'Active'
+    };
+  }
+  
+  console.log('CandidateService: No user in localStorage, returning empty profile');
+  return {
+    name: '',
+    email: '',
+    title: '',
+    location: '',
+    profileCompletion: 0,
+    skills: [],
+    status: 'Inactive'
+  };
+};
+
+const getFallbackStructuredProfile = () => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    const user = JSON.parse(userStr);
+    return {
+      name: user.fullName || user.username || 'Candidate',
+      email: user.email,
+      phone: '',
+      title: 'Software Developer',
+      location: 'Remote',
+      summary: '',
+      city: '',
+      country: '',
+      region: '',
+      totalExperienceYears: 0,
+      domainExperience: 'Software Development',
+      college: '',
+      university: '',
+      technologies: [
+        { techName: 'JavaScript', skillType: 'PRIMARY', yearsOfExperience: 3 },
+        { techName: 'React', skillType: 'PRIMARY', yearsOfExperience: 2 },
+        { techName: 'Node.js', skillType: 'SECONDARY', yearsOfExperience: 2 }
+      ],
+      certifications: [],
+      educations: [],
+      workExperiences: [],
+      awardsAchievements: [],
+      availabilityStatus: 'IMMEDIATE',
+      noticePeriodDays: 30,
+      earliestStartDate: '',
+      currentCompany: '',
+      currentCompanyTenureMonths: 0,
+      lastCompanyTenureMonths: 0,
+      isWillingToBuyoutNotice: false
+    };
+  }
+  
+  return {
+    name: '',
+    email: '',
+    phone: '',
+    title: '',
+    location: '',
+    summary: '',
+    city: '',
+    country: '',
+    region: '',
+    totalExperienceYears: 0,
+    domainExperience: '',
+    college: '',
+    university: '',
+    technologies: [],
+    certifications: [],
+    educations: [],
+    workExperiences: [],
+    awardsAchievements: [],
+    availabilityStatus: '',
+    noticePeriodDays: 30,
+    earliestStartDate: '',
+    currentCompany: '',
+    currentCompanyTenureMonths: 0,
+    lastCompanyTenureMonths: 0,
+    isWillingToBuyoutNotice: false
+  };
+};
+
 export const CandidateService = {
   // Profile endpoints
-  getCandidateProfile: async (): Promise<CandidateProfile> => {
+  // For dashboard - returns basic info
+  getCandidateProfile: async () => {
     try {
       console.log('CandidateService: Fetching candidate profile...');
       const response = await apiClient.get('/api/candidate/me/profile');
       console.log('CandidateService: Profile response:', response.data);
-      
-      // Transform backend response to match our interface
-      const profileData = response.data;
-      return {
-        name: profileData.name || '',
-        email: profileData.email || '',
-        phone: profileData.phone || '',
-        title: profileData.title || '',
-        location: profileData.location || '',
-        summary: profileData.summary || '',
-        city: profileData.city || '',
-        country: profileData.country || '',
-        region: profileData.region || '',
-        totalExperienceYears: profileData.totalExperienceYears || 0,
-        domainExperience: profileData.domainExperience || '',
-        college: profileData.college || '',
-        university: profileData.university || '',
-        profileCompletion: profileData.profileCompletionPercentage || 0,
-        status: profileData.status || 'Active',
-        
-        technologies: profileData.technologies || [],
-        certifications: profileData.certifications || [],
-        educations: profileData.educations || [],
-        workExperiences: profileData.workExperiences || [],
-        awardsAchievements: profileData.awardsAchievements || [],
-        
-        availabilityStatus: profileData.availabilityStatus || '',
-        noticePeriodDays: profileData.noticePeriodDays || 30,
-        earliestStartDate: profileData.earliestStartDate || '',
-        currentCompany: profileData.currentCompany || '',
-        currentCompanyTenureMonths: profileData.currentCompanyTenureMonths || 0,
-        lastCompanyTenureMonths: profileData.lastCompanyTenureMonths || 0,
-        isWillingToBuyoutNotice: profileData.isWillingToBuyoutNotice || false
-      };
+      return response.data;
     } catch (error: any) {
       console.error('CandidateService: Error fetching candidate profile:', error);
-      
-      // Return fallback data if backend not ready
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        console.log('CandidateService: Using fallback data from localStorage user:', user);
-        return {
-          name: user.fullName || user.username || 'Candidate',
-          email: user.email,
-          phone: '',
-          title: 'Software Developer',
-          location: 'Remote',
-          summary: '',
-          city: '',
-          country: '',
-          region: '',
-          totalExperienceYears: 0,
-          domainExperience: '',
-          college: '',
-          university: '',
-          profileCompletion: 60,
-          status: 'Active',
-          
-          technologies: [
-            { techName: 'JavaScript', skillType: 'PRIMARY', yearsOfExperience: 3 },
-            { techName: 'React', skillType: 'PRIMARY', yearsOfExperience: 2 },
-            { techName: 'Node.js', skillType: 'SECONDARY', yearsOfExperience: 2 }
-          ],
-          certifications: [],
-          educations: [],
-          workExperiences: [],
-          awardsAchievements: [],
-          
-          availabilityStatus: 'IMMEDIATE',
-          noticePeriodDays: 30,
-          earliestStartDate: '',
-          currentCompany: '',
-          currentCompanyTenureMonths: 0,
-          lastCompanyTenureMonths: 0,
-          isWillingToBuyoutNotice: false
-        };
-      }
-      
-      console.log('CandidateService: No user in localStorage, returning empty profile');
-      return {
-        name: '',
-        email: '',
-        phone: '',
-        title: '',
-        location: '',
-        summary: '',
-        city: '',
-        country: '',
-        region: '',
-        totalExperienceYears: 0,
-        domainExperience: '',
-        college: '',
-        university: '',
-        profileCompletion: 0,
-        status: 'Inactive',
-        
-        technologies: [],
-        certifications: [],
-        educations: [],
-        workExperiences: [],
-        awardsAchievements: [],
-        
-        availabilityStatus: '',
-        noticePeriodDays: 30,
-        earliestStartDate: '',
-        currentCompany: '',
-        currentCompanyTenureMonths: 0,
-        lastCompanyTenureMonths: 0,
-        isWillingToBuyoutNotice: false
-      };
+      // Return fallback data
+      return getFallbackProfile();
     }
   },
 
-  updateCandidateProfile: async (profileData: CandidateProfile): Promise<CandidateProfile> => {
+  // For edit page - returns full structured data
+  getCandidateProfileForEdit: async () => {
     try {
-      console.log('CandidateService: Updating candidate profile with structured data:', profileData);
-      
-      // Prepare structured data for the new endpoint
-      const structuredProfileData = {
-        name: profileData.name,
-        email: profileData.email,
-        phone: profileData.phone,
-        title: profileData.title,
-        location: profileData.location,
-        summary: profileData.summary,
-        
-        // Location breakdown
-        city: profileData.city || this.extractCity(profileData.location),
-        country: profileData.country || this.extractCountry(profileData.location),
-        region: profileData.region,
-        
-        // Professional information
-        totalExperienceYears: profileData.totalExperienceYears,
-        domainExperience: profileData.domainExperience,
-        college: profileData.college,
-        university: profileData.university,
-        
-        // Arrays for related entities
-        technologies: profileData.technologies.map(tech => ({
-          techName: tech.techName,
-          skillType: tech.skillType || 'PRIMARY',
-          yearsOfExperience: tech.yearsOfExperience,
-          lastUsedYear: tech.lastUsedYear
-        })),
-        
-        certifications: profileData.certifications.map(cert => ({
-          certName: cert.certName,
-          issuer: cert.issuer,
-          yearObtained: cert.yearObtained
-        })),
-        
-        educations: profileData.educations.map(edu => ({
-          degree: edu.degree,
-          college: edu.college,
-          university: edu.university,
-          yearOfPassing: edu.yearOfPassing
-        })),
-        
-        workExperiences: profileData.workExperiences.map(exp => ({
-          company: exp.company,
-          role: exp.role,
-          startDate: exp.startDate,
-          endDate: exp.endDate,
-          responsibilities: exp.responsibilities,
-          isCurrent: exp.isCurrent,
-          projectTitle: exp.projectTitle,
-          projectRole: exp.projectRole,
-          clientName: exp.clientName,
-          teamSize: exp.teamSize,
-          technologiesUsed: exp.technologiesUsed,
-          keyAchievements: exp.keyAchievements
-        })),
-        
-        awardsAchievements: profileData.awardsAchievements.map(award => ({
-          awardName: award.awardName,
-          awardType: award.awardType,
-          issuingOrganization: award.issuingOrganization,
-          issueDate: award.issueDate,
-          description: award.description
-        })),
-        
-        // Availability fields
-        availabilityStatus: profileData.availabilityStatus,
-        noticePeriodDays: profileData.noticePeriodDays,
-        earliestStartDate: profileData.earliestStartDate,
-        currentCompany: profileData.currentCompany,
-        currentCompanyTenureMonths: profileData.currentCompanyTenureMonths,
-        lastCompanyTenureMonths: profileData.lastCompanyTenureMonths,
-        isWillingToBuyoutNotice: profileData.isWillingToBuyoutNotice
-      };
+      console.log('CandidateService: Fetching candidate profile for edit...');
+      const response = await apiClient.get('/api/candidate/me/profile/edit');
+      console.log('CandidateService: Edit profile response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('CandidateService: Error fetching candidate profile for edit:', error);
+      // Return fallback structured data
+      return getFallbackStructuredProfile();
+    }
+  },
 
-      console.log('CandidateService: Sending structured profile data:', structuredProfileData);
+  updateCandidateProfile: async (profileData: any) => {
+    try {
+      console.log('CandidateService: Updating candidate profile:', profileData);
       
-      // Use the new structured endpoint
-      const response = await apiClient.put('/api/candidate/me/profile/structured', structuredProfileData);
+      // Use the structured endpoint (updated to use same endpoint as edit)
+      const response = await apiClient.put('/api/candidate/me/profile', profileData);
       console.log('CandidateService: Profile update successful:', response.data);
-      
-      // Update localStorage user data if name/email changed
-      const userStr = localStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        user.fullName = profileData.name;
-        user.email = profileData.email;
-        localStorage.setItem('user', JSON.stringify(user));
-      }
-      
       return response.data;
     } catch (error: any) {
       console.error('CandidateService: Error updating candidate profile:', error);
       
-      // Provide detailed error information
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
-        
-        // If structured endpoint fails, try the old endpoint as fallback
-        if (error.response.status === 404) {
-          console.log('CandidateService: Structured endpoint not found, trying legacy endpoint...');
-          try {
-            const legacyResponse = await apiClient.put('/api/candidate/me/profile', {
-              name: profileData.name,
-              email: profileData.email,
-              title: profileData.title,
-              location: profileData.location,
-              summary: profileData.summary,
-              skills: profileData.technologies.map(t => t.techName).join(', '),
-              experience: profileData.totalExperienceYears,
-              education: profileData.educations.map(e => `${e.degree} from ${e.college}`).join('; '),
-              certifications: profileData.certifications.map(c => c.certName).join(', ')
-            });
-            console.log('CandidateService: Legacy profile update successful:', legacyResponse.data);
-            return legacyResponse.data;
-          } catch (legacyError) {
-            console.error('CandidateService: Legacy endpoint also failed:', legacyError);
-          }
+      // Try fallback to old endpoint if new one fails
+      if (error.response?.status === 404 || error.response?.status === 400) {
+        console.log('CandidateService: Trying fallback update...');
+        try {
+          const fallbackResponse = await apiClient.put('/api/candidate/me/profile', {
+            name: profileData.name,
+            email: profileData.email,
+            title: profileData.title,
+            location: profileData.location,
+            summary: profileData.summary,
+            totalExperienceYears: profileData.totalExperienceYears
+          });
+          return fallbackResponse.data;
+        } catch (fallbackError) {
+          console.error('CandidateService: Fallback update also failed:', fallbackError);
         }
       }
-      
       throw error;
     }
   },

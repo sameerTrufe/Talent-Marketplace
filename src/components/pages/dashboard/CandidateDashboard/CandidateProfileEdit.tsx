@@ -39,7 +39,7 @@ const CandidateProfileEdit: React.FC = () => {
     phone: '',
     title: '',
     location: '',
-    summary: '',
+    summary: '', 
     
     // Arrays for related entities
     technologies: [] as Array<{
@@ -114,139 +114,139 @@ const CandidateProfileEdit: React.FC = () => {
   }, []);
 
   const loadProfile = async () => {
-    try {
-      setLoading(true);
-      const profileData = await CandidateService.getCandidateProfile();
-      setProfile(profileData);
+  try {
+    setLoading(true);
+    
+    // Use the new endpoint for edit profile
+    const profileData = await CandidateService.getCandidateProfileForEdit();
+    setProfile(profileData);
+    
+    console.log('Loaded profile data for edit:', profileData);
+    
+    // Transform the data for form state
+    setFormData({
+      name: profileData.name || '',
+      email: profileData.email || '',
+      phone: profileData.phone || '',
+      title: profileData.title || profileData.domainExperience || '',
+      location: profileData.location || `${profileData.city || ''}${profileData.city && profileData.country ? ', ' : ''}${profileData.country || ''}`,
+      summary: profileData.summary || '',
       
-      // Pre-fill form with structured data
-      setFormData({
-        name: profileData.name || '',
-        email: profileData.email || '',
-        phone: profileData.phone || '',
-        title: profileData.title || '',
-        location: profileData.location || '',
-        summary: profileData.summary || '',
-        
-        technologies: profileData.technologies || [],
-        certifications: profileData.certifications || [],
-        educations: profileData.educations || [],
-        workExperiences: profileData.workExperiences || [],
-        awardsAchievements: profileData.awardsAchievements || [],
-        
-        city: profileData.city || '',
-        country: profileData.country || '',
-        region: profileData.region || '',
-        totalExperienceYears: profileData.totalExperienceYears || 0,
-        domainExperience: profileData.domainExperience || '',
-        college: profileData.college || '',
-        university: profileData.university || '',
-        
-        availabilityStatus: profileData.availabilityStatus || '',
-        noticePeriodDays: profileData.noticePeriodDays || 30,
-        earliestStartDate: profileData.earliestStartDate || '',
-        currentCompany: profileData.currentCompany || '',
-        currentCompanyTenureMonths: profileData.currentCompanyTenureMonths || 0,
-        lastCompanyTenureMonths: profileData.lastCompanyTenureMonths || 0,
-        isWillingToBuyoutNotice: profileData.isWillingToBuyoutNotice || false
-      });
-    } catch (error) {
-      console.error('Error loading profile:', error);
-      toast.error('Failed to load profile');
-    } finally {
-      setLoading(false);
-    }
-  };
+      technologies: profileData.technologies || [],
+      certifications: profileData.certifications || [],
+      educations: profileData.educations || [],
+      workExperiences: profileData.workExperiences || [],
+      awardsAchievements: profileData.awardsAchievements || [],
+      
+      city: profileData.city || '',
+      country: profileData.country || '',
+      region: profileData.region || '',
+      totalExperienceYears: profileData.totalExperienceYears || 0,
+      domainExperience: profileData.domainExperience || '',
+      college: profileData.college || '',
+      university: profileData.university || '',
+      
+      availabilityStatus: profileData.availabilityStatus || 'IMMEDIATE',
+      noticePeriodDays: profileData.noticePeriodDays || 30,
+      earliestStartDate: profileData.earliestStartDate || '',
+      currentCompany: profileData.currentCompany || '',
+      currentCompanyTenureMonths: profileData.currentCompanyTenureMonths || 0,
+      lastCompanyTenureMonths: profileData.lastCompanyTenureMonths || 0,
+      isWillingToBuyoutNotice: profileData.isWillingToBuyoutNotice || false
+    });
+    
+  } catch (error) {
+    console.error('Error loading profile:', error);
+    toast.error('Failed to load profile');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Prepare structured data for API
-      const updateData = {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        title: formData.title,
-        location: formData.location,
-        summary: formData.summary,
-        
-        // Parse location into city, country, region
-        city: formData.city || extractCity(formData.location),
-        country: formData.country || extractCountry(formData.location),
-        region: formData.region,
-        
-        // Professional information
-        totalExperienceYears: formData.totalExperienceYears,
-        domainExperience: formData.domainExperience,
-        college: formData.college,
-        university: formData.university,
-        
-        // Arrays for related entities
-        technologies: formData.technologies.map(tech => ({
-          techName: tech.techName,
-          skillType: tech.skillType || 'PRIMARY',
-          yearsOfExperience: tech.yearsOfExperience,
-          lastUsedYear: tech.lastUsedYear
-        })),
-        
-        certifications: formData.certifications.map(cert => ({
-          certName: cert.certName,
-          issuer: cert.issuer,
-          yearObtained: cert.yearObtained
-        })),
-        
-        educations: formData.educations.map(edu => ({
-          degree: edu.degree,
-          college: edu.college,
-          university: edu.university,
-          yearOfPassing: edu.yearOfPassing
-        })),
-        
-        workExperiences: formData.workExperiences.map(exp => ({
-          company: exp.company,
-          role: exp.role,
-          startDate: exp.startDate,
-          endDate: exp.endDate,
-          responsibilities: exp.responsibilities,
-          isCurrent: exp.isCurrent,
-          projectTitle: exp.projectTitle,
-          projectRole: exp.projectRole,
-          clientName: exp.clientName,
-          teamSize: exp.teamSize,
-          technologiesUsed: exp.technologiesUsed,
-          keyAchievements: exp.keyAchievements
-        })),
-        
-        awardsAchievements: formData.awardsAchievements.map(award => ({
-          awardName: award.awardName,
-          awardType: award.awardType,
-          issuingOrganization: award.issuingOrganization,
-          issueDate: award.issueDate,
-          description: award.description
-        })),
-        
-        // Availability fields
-        availabilityStatus: formData.availabilityStatus,
-        noticePeriodDays: formData.noticePeriodDays,
-        earliestStartDate: formData.earliestStartDate,
-        currentCompany: formData.currentCompany,
-        currentCompanyTenureMonths: formData.currentCompanyTenureMonths,
-        lastCompanyTenureMonths: formData.lastCompanyTenureMonths,
-        isWillingToBuyoutNotice: formData.isWillingToBuyoutNotice
-      };
+        // Prepare structured data for API
+        const updateData = {
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone,
+            title: formData.title,
+            summary: formData.summary,
+            
+            // Location fields
+            city: formData.city || extractCity(formData.location),
+            country: formData.country || extractCountry(formData.location),
+            region: formData.region,
+            
+            // Professional information
+            totalExperienceYears: formData.totalExperienceYears || 0,
+            domainExperience: formData.domainExperience,
+            college: formData.college,
+            university: formData.university,
+            
+            // Arrays for related entities - ensure they match the DTO structure
+            technologies: formData.technologies.map(tech => ({
+                techName: tech.techName,
+                skillType: tech.skillType || 'PRIMARY',
+                yearsOfExperience: tech.yearsOfExperience || 0,
+                lastUsedYear: tech.lastUsedYear
+            })),
+            
+            certifications: formData.certifications.map(cert => ({
+                certName: cert.certName,
+                issuer: cert.issuer,
+                yearObtained: cert.yearObtained || new Date().getFullYear()
+            })),
+            
+            educations: formData.educations.map(edu => ({
+                degree: edu.degree,
+                college: edu.college,
+                university: edu.university,
+                yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
+            })),
+            
+            workExperiences: formData.workExperiences.map(exp => ({
+                company: exp.company,
+                role: exp.role,
+                startDate: exp.startDate,
+                endDate: exp.endDate,
+                responsibilities: exp.responsibilities,
+                isCurrent: exp.isCurrent || false
+            })),
+            
+            awardsAchievements: formData.awardsAchievements.map(award => ({
+                awardName: award.awardName,
+                awardType: award.awardType,
+                issuingOrganization: award.issuingOrganization,
+                issueDate: award.issueDate,
+                description: award.description
+            })),
+            
+            // Availability fields
+            availabilityStatus: formData.availabilityStatus || 'IMMEDIATE',
+            noticePeriodDays: formData.noticePeriodDays || 30,
+            earliestStartDate: formData.earliestStartDate,
+            currentCompany: formData.currentCompany,
+            currentCompanyTenureMonths: formData.currentCompanyTenureMonths || 0,
+            lastCompanyTenureMonths: formData.lastCompanyTenureMonths || 0,
+            isWillingToBuyoutNotice: formData.isWillingToBuyoutNotice || false
+        };
 
-      await CandidateService.updateCandidateProfile(updateData);
-      toast.success('Profile updated successfully');
-      navigate('/candidate/dashboard');
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+        console.log('Sending update data:', updateData);
+        
+        await CandidateService.updateCandidateProfile(updateData);
+        toast.success('Profile updated successfully');
+        navigate('/candidate/dashboard');
+    } catch (error: any) {
+        console.error('Error updating profile:', error);
+        toast.error(error.response?.data?.error || error.message || 'Failed to update profile');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
-  };
+};
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
