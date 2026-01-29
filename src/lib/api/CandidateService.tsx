@@ -241,51 +241,60 @@ export const CandidateService = {
     }
   },
 
-  // For edit page - returns full structured data
-  getCandidateProfileForEdit: async () => {
-    try {
-      console.log('CandidateService: Fetching candidate profile for edit...');
-      const response = await apiClient.get('/api/candidate/me/profile/edit');
-      console.log('CandidateService: Edit profile response:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('CandidateService: Error fetching candidate profile for edit:', error);
-      // Return fallback structured data
-      return getFallbackStructuredProfile();
+  // In CandidateService.tsx, update getCandidateProfileForEdit:
+
+getCandidateProfileForEdit: async () => {
+  try {
+    console.log('CandidateService: Fetching candidate profile for edit...');
+    const response = await apiClient.get('/api/candidate/me/profile/edit');
+    console.log('CandidateService: Edit profile response:', {
+      data: response.data,
+      hasTechnologies: response.data.technologies?.length > 0,
+      hasWorkExperiences: response.data.workExperiences?.length > 0
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('CandidateService: Error fetching candidate profile for edit:', error);
+    
+    // Enhanced error logging
+    if (error.response) {
+      console.error('Response error:', {
+        status: error.response.status,
+        data: error.response.data,
+        headers: error.response.headers
+      });
     }
-  },
+    
+    // Return fallback structured data
+    return getFallbackStructuredProfile();
+  }
+},
 
   updateCandidateProfile: async (profileData: any) => {
-    try {
-      console.log('CandidateService: Updating candidate profile:', profileData);
-      
-      // Use the structured endpoint (updated to use same endpoint as edit)
-      const response = await apiClient.put('/api/candidate/me/profile', profileData);
-      console.log('CandidateService: Profile update successful:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('CandidateService: Error updating candidate profile:', error);
-      
-      // Try fallback to old endpoint if new one fails
-      if (error.response?.status === 404 || error.response?.status === 400) {
-        console.log('CandidateService: Trying fallback update...');
-        try {
-          const fallbackResponse = await apiClient.put('/api/candidate/me/profile', {
-            name: profileData.name,
-            email: profileData.email,
-            title: profileData.title,
-            location: profileData.location,
-            summary: profileData.summary,
-            totalExperienceYears: profileData.totalExperienceYears
-          });
-          return fallbackResponse.data;
-        } catch (fallbackError) {
-          console.error('CandidateService: Fallback update also failed:', fallbackError);
-        }
-      }
-      throw error;
-    }
-  },
+  try {
+    console.log('CandidateService: Updating candidate profile:', {
+      name: profileData.name,
+      technologiesCount: profileData.technologies?.length,
+      workExperiencesCount: profileData.workExperiences?.length,
+      hasIds: profileData.technologies?.some((t: any) => t.id)
+    });
+    
+    const response = await apiClient.put('/api/candidate/me/profile', profileData);
+    console.log('CandidateService: Profile update successful:', {
+      status: response.status,
+      data: response.data
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error('CandidateService: Error updating candidate profile:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    
+    throw error;
+  }
+},
 
   // Helper methods for location parsing
   extractCity: (location: string): string => {

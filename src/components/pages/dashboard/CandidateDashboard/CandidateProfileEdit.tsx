@@ -20,18 +20,21 @@ import {
   Plus,
   X,
   Calendar,
-  Building
+  Building,
+  Trash2,
+  Edit
 } from 'lucide-react';
 import { CandidateService } from '@/lib/api/CandidateService';
 import { toast } from 'sonner';
 import { Badge } from '../../../ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../ui/select';
 
 const CandidateProfileEdit: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   
-  // Enhanced form data structure with arrays for related entities
   const [formData, setFormData] = useState({
     // Basic info
     name: '',
@@ -39,10 +42,11 @@ const CandidateProfileEdit: React.FC = () => {
     phone: '',
     title: '',
     location: '',
-    summary: '', 
+    summary: '',
     
     // Arrays for related entities
     technologies: [] as Array<{
+      id?: number;
       techName: string;
       proficiency?: string;
       skillType?: string;
@@ -51,12 +55,14 @@ const CandidateProfileEdit: React.FC = () => {
     }>,
     
     certifications: [] as Array<{
+      id?: number;
       certName: string;
       issuer: string;
       yearObtained: number;
     }>,
     
     educations: [] as Array<{
+      id?: number;
       degree: string;
       college: string;
       university: string;
@@ -64,6 +70,7 @@ const CandidateProfileEdit: React.FC = () => {
     }>,
     
     workExperiences: [] as Array<{
+      id?: number;
       company: string;
       role: string;
       startDate: string;
@@ -79,6 +86,7 @@ const CandidateProfileEdit: React.FC = () => {
     }>,
     
     awardsAchievements: [] as Array<{
+      id?: number;
       awardName: string;
       awardType: string;
       issuingOrganization: string;
@@ -96,7 +104,7 @@ const CandidateProfileEdit: React.FC = () => {
     university: '',
     
     // Availability fields
-    availabilityStatus: '',
+    availabilityStatus: 'IMMEDIATE' as 'IMMEDIATE' | 'NOTICE_PERIOD' | 'AVAILABLE_SOON' | 'NOT_AVAILABLE',
     noticePeriodDays: 30,
     earliestStartDate: '',
     currentCompany: '',
@@ -108,148 +116,286 @@ const CandidateProfileEdit: React.FC = () => {
   const [currentSkill, setCurrentSkill] = useState('');
   const [skillType, setSkillType] = useState('PRIMARY');
   const [yearsOfExperience, setYearsOfExperience] = useState('');
+  const [lastUsedYear, setLastUsedYear] = useState('');
+  
+  // New education form
+  const [newEducation, setNewEducation] = useState({
+    degree: '',
+    college: '',
+    university: '',
+    yearOfPassing: new Date().getFullYear()
+  });
+  
+  // New certification form
+  const [newCertification, setNewCertification] = useState({
+    certName: '',
+    issuer: '',
+    yearObtained: new Date().getFullYear()
+  });
 
   useEffect(() => {
     loadProfile();
   }, []);
 
   const loadProfile = async () => {
-  try {
-    setLoading(true);
-    
-    // Use the new endpoint for edit profile
-    const profileData = await CandidateService.getCandidateProfileForEdit();
-    setProfile(profileData);
-    
-    console.log('Loaded profile data for edit:', profileData);
-    
-    // Transform the data for form state
-    setFormData({
-      name: profileData.name || '',
-      email: profileData.email || '',
-      phone: profileData.phone || '',
-      title: profileData.title || profileData.domainExperience || '',
-      location: profileData.location || `${profileData.city || ''}${profileData.city && profileData.country ? ', ' : ''}${profileData.country || ''}`,
-      summary: profileData.summary || '',
+    try {
+      setLoading(true);
       
-      technologies: profileData.technologies || [],
-      certifications: profileData.certifications || [],
-      educations: profileData.educations || [],
-      workExperiences: profileData.workExperiences || [],
-      awardsAchievements: profileData.awardsAchievements || [],
+      const profileData = await CandidateService.getCandidateProfileForEdit();
+      console.log('DEBUG - Loaded profile data:', {
+        name: profileData.name,
+        email: profileData.email,
+        technologiesCount: profileData.technologies?.length,
+        workExperiencesCount: profileData.workExperiences?.length,
+        educationsCount: profileData.educations?.length,
+        certificationsCount: profileData.certifications?.length,
+        fullData: profileData
+      });
       
-      city: profileData.city || '',
-      country: profileData.country || '',
-      region: profileData.region || '',
-      totalExperienceYears: profileData.totalExperienceYears || 0,
-      domainExperience: profileData.domainExperience || '',
-      college: profileData.college || '',
-      university: profileData.university || '',
+      setProfile(profileData);
       
-      availabilityStatus: profileData.availabilityStatus || 'IMMEDIATE',
-      noticePeriodDays: profileData.noticePeriodDays || 30,
-      earliestStartDate: profileData.earliestStartDate || '',
-      currentCompany: profileData.currentCompany || '',
-      currentCompanyTenureMonths: profileData.currentCompanyTenureMonths || 0,
-      lastCompanyTenureMonths: profileData.lastCompanyTenureMonths || 0,
-      isWillingToBuyoutNotice: profileData.isWillingToBuyoutNotice || false
-    });
-    
-  } catch (error) {
-    console.error('Error loading profile:', error);
-    toast.error('Failed to load profile');
-  } finally {
-    setLoading(false);
-  }
-};
+      // Transform the data for form state - PRESERVE IDs
+      setFormData({
+        name: profileData.name || '',
+        email: profileData.email || '',
+        phone: profileData.phone || '',
+        title: profileData.title || '',
+        summary: profileData.summary || '',
+        location: profileData.location || '',
+        
+        // Arrays for related entities - WITH IDs
+        technologies: profileData.technologies?.map(tech => ({
+          id: tech.id,
+          techName: tech.techName || '',
+          skillType: tech.skillType || 'PRIMARY',
+          yearsOfExperience: tech.yearsOfExperience || 0,
+          lastUsedYear: tech.lastUsedYear
+        })) || [],
+        
+        certifications: profileData.certifications?.map(cert => ({
+          id: cert.id,
+          certName: cert.certName || '',
+          issuer: cert.issuer || '',
+          yearObtained: cert.yearObtained || new Date().getFullYear()
+        })) || [],
+        
+        educations: profileData.educations?.map(edu => ({
+          id: edu.id,
+          degree: edu.degree || '',
+          college: edu.college || '',
+          university: edu.university || '',
+          yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
+        })) || [],
+        
+        workExperiences: profileData.workExperiences?.map(exp => ({
+          id: exp.id,
+          company: exp.company || '',
+          role: exp.role || '',
+          startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
+          endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : '',
+          responsibilities: exp.responsibilities || '',
+          isCurrent: exp.isCurrent || false,
+          projectTitle: exp.projectTitle,
+          projectRole: exp.projectRole,
+          clientName: exp.clientName,
+          teamSize: exp.teamSize,
+          technologiesUsed: exp.technologiesUsed,
+          keyAchievements: exp.keyAchievements
+        })) || [],
+        
+        awardsAchievements: profileData.awardsAchievements?.map(award => ({
+          id: award.id,
+          awardName: award.awardName || '',
+          awardType: award.awardType || '',
+          issuingOrganization: award.issuingOrganization || '',
+          issueDate: award.issueDate ? new Date(award.issueDate).toISOString().split('T')[0] : '',
+          description: award.description || ''
+        })) || [],
+        
+        // Location breakdown
+        city: profileData.city || '',
+        country: profileData.country || '',
+        region: profileData.region || '',
+        
+        // Professional info
+        totalExperienceYears: profileData.totalExperienceYears || 0,
+        domainExperience: profileData.domainExperience || '',
+        college: profileData.college || '',
+        university: profileData.university || '',
+        
+        // Availability fields
+        availabilityStatus: profileData.availabilityStatus || 'IMMEDIATE',
+        noticePeriodDays: profileData.noticePeriodDays || 30,
+        earliestStartDate: profileData.earliestStartDate || '',
+        currentCompany: profileData.currentCompany || '',
+        currentCompanyTenureMonths: profileData.currentCompanyTenureMonths || 0,
+        lastCompanyTenureMonths: profileData.lastCompanyTenureMonths || 0,
+        isWillingToBuyoutNotice: profileData.isWillingToBuyoutNotice || false
+      });
+      
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      toast.error('Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDateForBackend = (dateString: string): string => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSaving(true);
 
     try {
-        // Prepare structured data for API
-        const updateData = {
-            name: formData.name,
-            email: formData.email,
-            phone: formData.phone,
-            title: formData.title,
-            summary: formData.summary,
-            
-            // Location fields
-            city: formData.city || extractCity(formData.location),
-            country: formData.country || extractCountry(formData.location),
-            region: formData.region,
-            
-            // Professional information
-            totalExperienceYears: formData.totalExperienceYears || 0,
-            domainExperience: formData.domainExperience,
-            college: formData.college,
-            university: formData.university,
-            
-            // Arrays for related entities - ensure they match the DTO structure
-            technologies: formData.technologies.map(tech => ({
-                techName: tech.techName,
-                skillType: tech.skillType || 'PRIMARY',
-                yearsOfExperience: tech.yearsOfExperience || 0,
-                lastUsedYear: tech.lastUsedYear
-            })),
-            
-            certifications: formData.certifications.map(cert => ({
-                certName: cert.certName,
-                issuer: cert.issuer,
-                yearObtained: cert.yearObtained || new Date().getFullYear()
-            })),
-            
-            educations: formData.educations.map(edu => ({
-                degree: edu.degree,
-                college: edu.college,
-                university: edu.university,
-                yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
-            })),
-            
-            workExperiences: formData.workExperiences.map(exp => ({
-                company: exp.company,
-                role: exp.role,
-                startDate: exp.startDate,
-                endDate: exp.endDate,
-                responsibilities: exp.responsibilities,
-                isCurrent: exp.isCurrent || false
-            })),
-            
-            awardsAchievements: formData.awardsAchievements.map(award => ({
-                awardName: award.awardName,
-                awardType: award.awardType,
-                issuingOrganization: award.issuingOrganization,
-                issueDate: award.issueDate,
-                description: award.description
-            })),
-            
-            // Availability fields
-            availabilityStatus: formData.availabilityStatus || 'IMMEDIATE',
-            noticePeriodDays: formData.noticePeriodDays || 30,
-            earliestStartDate: formData.earliestStartDate,
-            currentCompany: formData.currentCompany,
-            currentCompanyTenureMonths: formData.currentCompanyTenureMonths || 0,
-            lastCompanyTenureMonths: formData.lastCompanyTenureMonths || 0,
-            isWillingToBuyoutNotice: formData.isWillingToBuyoutNotice || false
-        };
+      console.log('Current form data before submit:', {
+        educationsCount: formData.educations.length,
+        educations: formData.educations,
+        certificationsCount: formData.certifications.length,
+        certifications: formData.certifications
+      });
 
-        console.log('Sending update data:', updateData);
+      // Prepare structured data for API
+      const updateData = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        title: formData.title,
+        summary: formData.summary,
         
-        await CandidateService.updateCandidateProfile(updateData);
-        toast.success('Profile updated successfully');
-        navigate('/candidate/dashboard');
+        // Location fields
+        city: formData.city,
+        country: formData.country,
+        region: formData.region,
+        
+        // Professional information
+        totalExperienceYears: formData.totalExperienceYears || 0,
+        domainExperience: formData.domainExperience,
+        college: formData.college,
+        university: formData.university,
+        
+        // Arrays for related entities
+        technologies: formData.technologies.map(tech => ({
+          id: tech.id, // May be undefined for new entries
+          techName: tech.techName,
+          skillType: tech.skillType || 'PRIMARY',
+          yearsOfExperience: tech.yearsOfExperience || 0,
+          lastUsedYear: tech.lastUsedYear
+        })),
+        
+        // For new certifications without IDs, send without id field
+        certifications: formData.certifications.map(cert => {
+          const certData: any = {
+            certName: cert.certName,
+            issuer: cert.issuer,
+            yearObtained: cert.yearObtained || new Date().getFullYear()
+          };
+          // Only include id if it exists (for existing entries)
+          if (cert.id) {
+            certData.id = cert.id;
+          }
+          return certData;
+        }),
+        
+        // For new educations without IDs, send without id field
+        educations: formData.educations.map(edu => {
+          const eduData: any = {
+            degree: edu.degree,
+            college: edu.college,
+            university: edu.university,
+            yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
+          };
+          // Only include id if it exists (for existing entries)
+          if (edu.id) {
+            eduData.id = edu.id;
+          }
+          return eduData;
+        }),
+        
+        workExperiences: formData.workExperiences.map(exp => ({
+          id: exp.id,
+          company: exp.company,
+          role: exp.role,
+          startDate: formatDateForBackend(exp.startDate),
+          endDate: formatDateForBackend(exp.endDate),
+          responsibilities: exp.responsibilities,
+          isCurrent: exp.isCurrent || false,
+          projectTitle: exp.projectTitle,
+          projectRole: exp.projectRole,
+          clientName: exp.clientName,
+          teamSize: exp.teamSize,
+          technologiesUsed: exp.technologiesUsed,
+          keyAchievements: exp.keyAchievements
+        })),
+        
+        awardsAchievements: formData.awardsAchievements.map(award => ({
+          id: award.id,
+          awardName: award.awardName,
+          awardType: award.awardType,
+          issuingOrganization: award.issuingOrganization,
+          issueDate: formatDateForBackend(award.issueDate),
+          description: award.description
+        })),
+        
+        // Availability fields
+        availabilityStatus: formData.availabilityStatus || 'IMMEDIATE',
+        noticePeriodDays: formData.noticePeriodDays || 30,
+        earliestStartDate: formatDateForBackend(formData.earliestStartDate),
+        currentCompany: formData.currentCompany,
+        currentCompanyTenureMonths: formData.currentCompanyTenureMonths || 0,
+        lastCompanyTenureMonths: formData.lastCompanyTenureMonths || 0,
+        isWillingToBuyoutNotice: formData.isWillingToBuyoutNotice || false
+      };
+
+      console.log('Sending update data to backend:', {
+        totalEducations: updateData.educations.length,
+        educations: updateData.educations,
+        totalCertifications: updateData.certifications.length,
+        certifications: updateData.certifications
+      });
+      
+      const response = await CandidateService.updateCandidateProfile(updateData);
+      console.log('Profile update response:', response);
+      
+      toast.success('Profile updated successfully');
+      
+      // Reload the profile to get updated IDs
+      await loadProfile();
+      
+      // Navigate back to dashboard
+      navigate('/candidate/dashboard');
+      
     } catch (error: any) {
-        console.error('Error updating profile:', error);
-        toast.error(error.response?.data?.error || error.message || 'Failed to update profile');
+      console.error('Error updating profile:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      toast.error(error.response?.data?.error || error.message || 'Failed to update profile');
     } finally {
-        setLoading(false);
+      setSaving(false);
     }
-};
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -273,10 +419,18 @@ const CandidateProfileEdit: React.FC = () => {
   };
 
   const removeItem = (section: string, index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: prev[section].filter((_: any, i: number) => i !== index)
-    }));
+    console.log(`Removing item from ${section} at index ${index}`);
+    
+    setFormData(prev => {
+      const newArray = [...prev[section]];
+      newArray.splice(index, 1);
+      return {
+        ...prev,
+        [section]: newArray
+      };
+    });
+    
+    toast.success('Item removed successfully');
   };
 
   const addSkill = () => {
@@ -284,23 +438,92 @@ const CandidateProfileEdit: React.FC = () => {
       addItem('technologies', {
         techName: currentSkill.trim(),
         skillType: skillType,
-        yearsOfExperience: yearsOfExperience ? parseFloat(yearsOfExperience) : undefined
+        yearsOfExperience: yearsOfExperience ? parseFloat(yearsOfExperience) : 0,
+        lastUsedYear: lastUsedYear ? parseInt(lastUsedYear) : undefined
       });
       setCurrentSkill('');
       setYearsOfExperience('');
+      setLastUsedYear('');
+      toast.success('Skill added successfully');
+    } else {
+      toast.error('Please enter a skill name');
     }
   };
 
-  const extractCity = (location: string) => {
-    if (!location) return '';
-    const parts = location.split(',').map(p => p.trim());
-    return parts[0] || '';
+  const handleAddEducation = () => {
+    if (newEducation.degree.trim() && newEducation.college.trim()) {
+      // Add new education WITHOUT id (backend will generate it)
+      const educationToAdd = {
+        degree: newEducation.degree,
+        college: newEducation.college,
+        university: newEducation.university,
+        yearOfPassing: newEducation.yearOfPassing || new Date().getFullYear()
+      };
+      
+      console.log('Adding new education:', educationToAdd);
+      
+      setFormData(prev => ({
+        ...prev,
+        educations: [...prev.educations, educationToAdd]
+      }));
+      
+      // Reset form
+      setNewEducation({
+        degree: '',
+        college: '',
+        university: '',
+        yearOfPassing: new Date().getFullYear()
+      });
+      
+      toast.success('Education added successfully');
+    } else {
+      toast.error('Please fill in degree and college fields');
+    }
   };
 
-  const extractCountry = (location: string) => {
-    if (!location) return '';
-    const parts = location.split(',').map(p => p.trim());
-    return parts[parts.length - 1] || '';
+  const handleAddCertification = () => {
+    if (newCertification.certName.trim() && newCertification.issuer.trim()) {
+      // Add new certification WITHOUT id (backend will generate it)
+      const certificationToAdd = {
+        certName: newCertification.certName,
+        issuer: newCertification.issuer,
+        yearObtained: newCertification.yearObtained || new Date().getFullYear()
+      };
+      
+      console.log('Adding new certification:', certificationToAdd);
+      
+      setFormData(prev => ({
+        ...prev,
+        certifications: [...prev.certifications, certificationToAdd]
+      }));
+      
+      // Reset form
+      setNewCertification({
+        certName: '',
+        issuer: '',
+        yearObtained: new Date().getFullYear()
+      });
+      
+      toast.success('Certification added successfully');
+    } else {
+      toast.error('Please fill in certification name and issuer fields');
+    }
+  };
+
+  const handleNewEducationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewEducation(prev => ({
+      ...prev,
+      [name]: name === 'yearOfPassing' ? parseInt(value) || new Date().getFullYear() : value
+    }));
+  };
+
+  const handleNewCertificationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewCertification(prev => ({
+      ...prev,
+      [name]: name === 'yearObtained' ? parseInt(value) || new Date().getFullYear() : value
+    }));
   };
 
   if (loading && !profile) {
@@ -367,16 +590,6 @@ const CandidateProfileEdit: React.FC = () => {
                     value={formData.phone}
                     onChange={handleChange}
                     placeholder="+1 (555) 123-4567"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
-                    placeholder="City, Country"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -448,14 +661,261 @@ const CandidateProfileEdit: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="currentCompany">Current Company</Label>
-                  <Input
-                    id="currentCompany"
-                    name="currentCompany"
-                    value={formData.currentCompany}
-                    onChange={handleChange}
-                    placeholder="Current company name"
-                  />
+                  <Label htmlFor="availabilityStatus">Availability Status</Label>
+                  <Select
+                    value={formData.availabilityStatus}
+                    onValueChange={(value) => handleSelectChange('availabilityStatus', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select availability" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="IMMEDIATE">Immediate</SelectItem>
+                      <SelectItem value="NOTICE_PERIOD">Notice Period</SelectItem>
+                      <SelectItem value="AVAILABLE_SOON">Available Soon</SelectItem>
+                      <SelectItem value="NOT_AVAILABLE">Not Available</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Education Section - FIXED */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5" />
+                  Education
+                </CardTitle>
+                <CardDescription>Your educational background</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* List of existing educations */}
+                  {formData.educations.map((edu, index) => (
+                    <div key={index} className="p-4 border rounded-lg space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-semibold">Education #{index + 1}</h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem('educations', index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Degree *</Label>
+                          <Input
+                            value={edu.degree}
+                            onChange={(e) => handleNestedChange('educations', index, 'degree', e.target.value)}
+                            placeholder="e.g., Bachelor of Engineering"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label>College *</Label>
+                          <Input
+                            value={edu.college}
+                            onChange={(e) => handleNestedChange('educations', index, 'college', e.target.value)}
+                            placeholder="College name"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label>University</Label>
+                          <Input
+                            value={edu.university}
+                            onChange={(e) => handleNestedChange('educations', index, 'university', e.target.value)}
+                            placeholder="University name"
+                          />
+                        </div>
+                        <div>
+                          <Label>Year of Passing</Label>
+                          <Input
+                            type="number"
+                            value={edu.yearOfPassing}
+                            onChange={(e) => handleNestedChange('educations', index, 'yearOfPassing', parseInt(e.target.value) || new Date().getFullYear())}
+                            placeholder="2020"
+                            min="1900"
+                            max="2099"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add new education form */}
+                  <div className="p-4 border-2 border-dashed rounded-lg space-y-4">
+                    <h4 className="font-semibold">Add New Education</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="newDegree">Degree *</Label>
+                        <Input
+                          id="newDegree"
+                          name="degree"
+                          value={newEducation.degree}
+                          onChange={handleNewEducationChange}
+                          placeholder="e.g., Bachelor of Engineering"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newCollege">College *</Label>
+                        <Input
+                          id="newCollege"
+                          name="college"
+                          value={newEducation.college}
+                          onChange={handleNewEducationChange}
+                          placeholder="College name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newUniversity">University</Label>
+                        <Input
+                          id="newUniversity"
+                          name="university"
+                          value={newEducation.university}
+                          onChange={handleNewEducationChange}
+                          placeholder="University name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newYearOfPassing">Year of Passing</Label>
+                        <Input
+                          id="newYearOfPassing"
+                          name="yearOfPassing"
+                          type="number"
+                          value={newEducation.yearOfPassing}
+                          onChange={handleNewEducationChange}
+                          placeholder="2020"
+                          min="1900"
+                          max="2099"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddEducation}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Education
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Certifications Section - FIXED */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Award className="h-5 w-5" />
+                  Certifications
+                </CardTitle>
+                <CardDescription>Your professional certifications</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* List of existing certifications */}
+                  {formData.certifications.map((cert, index) => (
+                    <div key={index} className="p-4 border rounded-lg space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-semibold">Certification #{index + 1}</h4>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeItem('certifications', index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <Label>Certification Name *</Label>
+                          <Input
+                            value={cert.certName}
+                            onChange={(e) => handleNestedChange('certifications', index, 'certName', e.target.value)}
+                            placeholder="e.g., AWS Certified Solutions Architect"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label>Issuer *</Label>
+                          <Input
+                            value={cert.issuer}
+                            onChange={(e) => handleNestedChange('certifications', index, 'issuer', e.target.value)}
+                            placeholder="Issuing organization"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <Label>Year Obtained</Label>
+                          <Input
+                            type="number"
+                            value={cert.yearObtained}
+                            onChange={(e) => handleNestedChange('certifications', index, 'yearObtained', parseInt(e.target.value) || new Date().getFullYear())}
+                            placeholder="2023"
+                            min="1900"
+                            max="2099"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Add new certification form */}
+                  <div className="p-4 border-2 border-dashed rounded-lg space-y-4">
+                    <h4 className="font-semibold">Add New Certification</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="newCertName">Certification Name *</Label>
+                        <Input
+                          id="newCertName"
+                          name="certName"
+                          value={newCertification.certName}
+                          onChange={handleNewCertificationChange}
+                          placeholder="e.g., AWS Certified Solutions Architect"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newIssuer">Issuer *</Label>
+                        <Input
+                          id="newIssuer"
+                          name="issuer"
+                          value={newCertification.issuer}
+                          onChange={handleNewCertificationChange}
+                          placeholder="Issuing organization"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newYearObtained">Year Obtained</Label>
+                        <Input
+                          id="newYearObtained"
+                          name="yearObtained"
+                          type="number"
+                          value={newCertification.yearObtained}
+                          onChange={handleNewCertificationChange}
+                          placeholder="2023"
+                          min="1900"
+                          max="2099"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddCertification}
+                      className="w-full"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Certification
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -508,6 +968,18 @@ const CandidateProfileEdit: React.FC = () => {
                         placeholder="Years"
                       />
                     </div>
+                    <div className="w-32">
+                      <Label htmlFor="lastUsedYear">Last Used Year</Label>
+                      <Input
+                        id="lastUsedYear"
+                        type="number"
+                        min="2000"
+                        max={new Date().getFullYear()}
+                        value={lastUsedYear}
+                        onChange={(e) => setLastUsedYear(e.target.value)}
+                        placeholder="2024"
+                      />
+                    </div>
                     <div className="flex items-end">
                       <Button type="button" onClick={addSkill} className="h-10">
                         <Plus className="h-4 w-4" />
@@ -523,8 +995,11 @@ const CandidateProfileEdit: React.FC = () => {
                         {tech.skillType && (
                           <span className="text-xs opacity-75">({tech.skillType})</span>
                         )}
-                        {tech.yearsOfExperience && (
+                        {tech.yearsOfExperience && tech.yearsOfExperience > 0 && (
                           <span className="text-xs opacity-75">· {tech.yearsOfExperience}y</span>
+                        )}
+                        {tech.lastUsedYear && (
+                          <span className="text-xs opacity-75">· {tech.lastUsedYear}</span>
                         )}
                         <button
                           type="button"
@@ -536,214 +1011,6 @@ const CandidateProfileEdit: React.FC = () => {
                       </Badge>
                     ))}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Work Experience */}
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building className="h-5 w-5" />
-                  Work Experience
-                </CardTitle>
-                <CardDescription>Add your work history</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {formData.workExperiences.map((exp, index) => (
-                    <div key={index} className="p-4 border rounded-lg space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-semibold">Experience #{index + 1}</h4>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem('workExperiences', index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Company *</Label>
-                          <Input
-                            value={exp.company}
-                            onChange={(e) => handleNestedChange('workExperiences', index, 'company', e.target.value)}
-                            placeholder="Company name"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Role *</Label>
-                          <Input
-                            value={exp.role}
-                            onChange={(e) => handleNestedChange('workExperiences', index, 'role', e.target.value)}
-                            placeholder="Job title"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Start Date</Label>
-                          <Input
-                            type="date"
-                            value={exp.startDate}
-                            onChange={(e) => handleNestedChange('workExperiences', index, 'startDate', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>End Date</Label>
-                          <Input
-                            type="date"
-                            value={exp.endDate}
-                            onChange={(e) => handleNestedChange('workExperiences', index, 'endDate', e.target.value)}
-                            disabled={exp.isCurrent}
-                          />
-                        </div>
-                        <div className="md:col-span-2">
-                          <Label>Responsibilities</Label>
-                          <Textarea
-                            value={exp.responsibilities}
-                            onChange={(e) => handleNestedChange('workExperiences', index, 'responsibilities', e.target.value)}
-                            placeholder="Describe your responsibilities"
-                            rows={3}
-                          />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              id={`isCurrent-${index}`}
-                              checked={exp.isCurrent}
-                              onChange={(e) => handleNestedChange('workExperiences', index, 'isCurrent', e.target.checked)}
-                            />
-                            <Label htmlFor={`isCurrent-${index}`}>Current Employment</Label>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => addItem('workExperiences', {
-                      company: '',
-                      role: '',
-                      startDate: '',
-                      endDate: '',
-                      responsibilities: '',
-                      isCurrent: false
-                    })}
-                    className="w-full"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Work Experience
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Education */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <GraduationCap className="h-5 w-5" />
-                  Education
-                </CardTitle>
-                <CardDescription>Your educational background</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {formData.educations.map((edu, index) => (
-                    <div key={index} className="p-3 border rounded space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <div className="font-medium">{edu.degree}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {edu.college}, {edu.university}
-                          </div>
-                          {edu.yearOfPassing && (
-                            <div className="text-xs">Passed: {edu.yearOfPassing}</div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeItem('educations', index)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => addItem('educations', {
-                      degree: '',
-                      college: '',
-                      university: '',
-                      yearOfPassing: new Date().getFullYear()
-                    })}
-                    className="w-full"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Education
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Certifications */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Award className="h-5 w-5" />
-                  Certifications
-                </CardTitle>
-                <CardDescription>Your professional certifications</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {formData.certifications.map((cert, index) => (
-                    <div key={index} className="p-3 border rounded space-y-2">
-                      <div className="flex justify-between items-start">
-                        <div className="space-y-1">
-                          <div className="font-medium">{cert.certName}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {cert.issuer}
-                          </div>
-                          {cert.yearObtained && (
-                            <div className="text-xs">Obtained: {cert.yearObtained}</div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeItem('certifications', index)}
-                          className="text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => addItem('certifications', {
-                      certName: '',
-                      issuer: '',
-                      yearObtained: new Date().getFullYear()
-                    })}
-                    className="w-full"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Certification
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -779,9 +1046,9 @@ const CandidateProfileEdit: React.FC = () => {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
-              {loading ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>
         </form>
