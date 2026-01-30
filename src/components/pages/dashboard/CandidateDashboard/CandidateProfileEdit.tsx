@@ -44,6 +44,17 @@ const CandidateProfileEdit: React.FC = () => {
     location: '',
     summary: '',
     
+    // Location breakdown
+    city: '',
+    country: '',
+    region: '',
+    
+    // Professional info
+    totalExperienceYears: 0,
+    domainExperience: '',
+    college: '',
+    university: '',
+    
     // Arrays for related entities
     technologies: [] as Array<{
       id?: number;
@@ -94,15 +105,6 @@ const CandidateProfileEdit: React.FC = () => {
       description: string;
     }>,
     
-    // Additional candidate fields
-    city: '',
-    country: '',
-    region: '',
-    totalExperienceYears: 0,
-    domainExperience: '',
-    college: '',
-    university: '',
-    
     // Availability fields
     availabilityStatus: 'IMMEDIATE' as 'IMMEDIATE' | 'NOTICE_PERIOD' | 'AVAILABLE_SOON' | 'NOT_AVAILABLE',
     noticePeriodDays: 30,
@@ -133,6 +135,16 @@ const CandidateProfileEdit: React.FC = () => {
     yearObtained: new Date().getFullYear()
   });
 
+  // New work experience form
+  const [newWorkExperience, setNewWorkExperience] = useState({
+    company: '',
+    role: '',
+    startDate: '',
+    endDate: '',
+    responsibilities: '',
+    isCurrent: false
+  });
+
   useEffect(() => {
     loadProfile();
   }, []);
@@ -140,17 +152,26 @@ const CandidateProfileEdit: React.FC = () => {
   const loadProfile = async () => {
     try {
       setLoading(true);
+      console.log('Loading profile data...');
       
       const profileData = await CandidateService.getCandidateProfileForEdit();
-      console.log('DEBUG - Loaded profile data:', {
+      console.log('Profile data loaded:', {
         name: profileData.name,
         email: profileData.email,
-        technologiesCount: profileData.technologies?.length,
-        workExperiencesCount: profileData.workExperiences?.length,
-        educationsCount: profileData.educations?.length,
-        certificationsCount: profileData.certifications?.length,
-        fullData: profileData
+        technologiesCount: profileData.technologies?.length || 0,
+        certificationsCount: profileData.certifications?.length || 0,
+        educationsCount: profileData.educations?.length || 0,
+        workExperiencesCount: profileData.workExperiences?.length || 0,
+        awardsCount: profileData.awardsAchievements?.length || 0
       });
+      
+      if (profileData.educations && profileData.educations.length > 0) {
+        console.log('Education data received:', profileData.educations.map((e: any) => ({
+          id: e.id,
+          degree: e.degree,
+          college: e.college
+        })));
+      }
       
       setProfile(profileData);
       
@@ -163,8 +184,19 @@ const CandidateProfileEdit: React.FC = () => {
         summary: profileData.summary || '',
         location: profileData.location || '',
         
+        // Location breakdown
+        city: profileData.city || '',
+        country: profileData.country || '',
+        region: profileData.region || '',
+        
+        // Professional info
+        totalExperienceYears: profileData.totalExperienceYears || 0,
+        domainExperience: profileData.domainExperience || '',
+        college: profileData.college || '',
+        university: profileData.university || '',
+        
         // Arrays for related entities - WITH IDs
-        technologies: profileData.technologies?.map(tech => ({
+        technologies: profileData.technologies?.map((tech: any) => ({
           id: tech.id,
           techName: tech.techName || '',
           skillType: tech.skillType || 'PRIMARY',
@@ -172,14 +204,14 @@ const CandidateProfileEdit: React.FC = () => {
           lastUsedYear: tech.lastUsedYear
         })) || [],
         
-        certifications: profileData.certifications?.map(cert => ({
+        certifications: profileData.certifications?.map((cert: any) => ({
           id: cert.id,
           certName: cert.certName || '',
           issuer: cert.issuer || '',
           yearObtained: cert.yearObtained || new Date().getFullYear()
         })) || [],
         
-        educations: profileData.educations?.map(edu => ({
+        educations: profileData.educations?.map((edu: any) => ({
           id: edu.id,
           degree: edu.degree || '',
           college: edu.college || '',
@@ -187,7 +219,7 @@ const CandidateProfileEdit: React.FC = () => {
           yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
         })) || [],
         
-        workExperiences: profileData.workExperiences?.map(exp => ({
+        workExperiences: profileData.workExperiences?.map((exp: any) => ({
           id: exp.id,
           company: exp.company || '',
           role: exp.role || '',
@@ -203,7 +235,7 @@ const CandidateProfileEdit: React.FC = () => {
           keyAchievements: exp.keyAchievements
         })) || [],
         
-        awardsAchievements: profileData.awardsAchievements?.map(award => ({
+        awardsAchievements: profileData.awardsAchievements?.map((award: any) => ({
           id: award.id,
           awardName: award.awardName || '',
           awardType: award.awardType || '',
@@ -211,17 +243,6 @@ const CandidateProfileEdit: React.FC = () => {
           issueDate: award.issueDate ? new Date(award.issueDate).toISOString().split('T')[0] : '',
           description: award.description || ''
         })) || [],
-        
-        // Location breakdown
-        city: profileData.city || '',
-        country: profileData.country || '',
-        region: profileData.region || '',
-        
-        // Professional info
-        totalExperienceYears: profileData.totalExperienceYears || 0,
-        domainExperience: profileData.domainExperience || '',
-        college: profileData.college || '',
-        university: profileData.university || '',
         
         // Availability fields
         availabilityStatus: profileData.availabilityStatus || 'IMMEDIATE',
@@ -233,9 +254,12 @@ const CandidateProfileEdit: React.FC = () => {
         isWillingToBuyoutNotice: profileData.isWillingToBuyoutNotice || false
       });
       
-    } catch (error) {
+      console.log('Form data set successfully. Education count:', 
+        profileData.educations?.length || 0);
+      
+    } catch (error: any) {
       console.error('Error loading profile:', error);
-      toast.error('Failed to load profile');
+      toast.error('Failed to load profile: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -257,106 +281,96 @@ const CandidateProfileEdit: React.FC = () => {
     setSaving(true);
 
     try {
-      console.log('Current form data before submit:', {
+      console.log('DEBUG: Current form data:', {
+        name: formData.name,
+        email: formData.email,
         educationsCount: formData.educations.length,
         educations: formData.educations,
         certificationsCount: formData.certifications.length,
-        certifications: formData.certifications
+        certifications: formData.certifications,
+        workExperiencesCount: formData.workExperiences.length,
+        technologiesCount: formData.technologies.length
       });
 
       // Prepare structured data for API
       const updateData = {
         name: formData.name,
         email: formData.email,
-        phone: formData.phone,
-        title: formData.title,
-        summary: formData.summary,
+        phone: formData.phone || '',
+        title: formData.title || '',
+        summary: formData.summary || '',
         
         // Location fields
-        city: formData.city,
-        country: formData.country,
-        region: formData.region,
+        city: formData.city || '',
+        country: formData.country || '',
+        region: formData.region || '',
         
         // Professional information
         totalExperienceYears: formData.totalExperienceYears || 0,
-        domainExperience: formData.domainExperience,
-        college: formData.college,
-        university: formData.university,
+        domainExperience: formData.domainExperience || '',
+        college: formData.college || '',
+        university: formData.university || '',
         
         // Arrays for related entities
         technologies: formData.technologies.map(tech => ({
-          id: tech.id, // May be undefined for new entries
-          techName: tech.techName,
+          id: tech.id,
+          techName: tech.techName || '',
           skillType: tech.skillType || 'PRIMARY',
           yearsOfExperience: tech.yearsOfExperience || 0,
           lastUsedYear: tech.lastUsedYear
         })),
         
-        // For new certifications without IDs, send without id field
-        certifications: formData.certifications.map(cert => {
-          const certData: any = {
-            certName: cert.certName,
-            issuer: cert.issuer,
-            yearObtained: cert.yearObtained || new Date().getFullYear()
-          };
-          // Only include id if it exists (for existing entries)
-          if (cert.id) {
-            certData.id = cert.id;
-          }
-          return certData;
-        }),
+        certifications: formData.certifications.map(cert => ({
+          id: cert.id,
+          certName: cert.certName || '',
+          issuer: cert.issuer || '',
+          yearObtained: cert.yearObtained || new Date().getFullYear()
+        })),
         
-        // For new educations without IDs, send without id field
-        educations: formData.educations.map(edu => {
-          const eduData: any = {
-            degree: edu.degree,
-            college: edu.college,
-            university: edu.university,
-            yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
-          };
-          // Only include id if it exists (for existing entries)
-          if (edu.id) {
-            eduData.id = edu.id;
-          }
-          return eduData;
-        }),
+        educations: formData.educations.map(edu => ({
+          id: edu.id,
+          degree: edu.degree || '',
+          college: edu.college || '',
+          university: edu.university || '',
+          yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
+        })),
         
         workExperiences: formData.workExperiences.map(exp => ({
           id: exp.id,
-          company: exp.company,
-          role: exp.role,
+          company: exp.company || '',
+          role: exp.role || '',
           startDate: formatDateForBackend(exp.startDate),
           endDate: formatDateForBackend(exp.endDate),
-          responsibilities: exp.responsibilities,
+          responsibilities: exp.responsibilities || '',
           isCurrent: exp.isCurrent || false,
-          projectTitle: exp.projectTitle,
-          projectRole: exp.projectRole,
-          clientName: exp.clientName,
+          projectTitle: exp.projectTitle || '',
+          projectRole: exp.projectRole || '',
+          clientName: exp.clientName || '',
           teamSize: exp.teamSize,
-          technologiesUsed: exp.technologiesUsed,
-          keyAchievements: exp.keyAchievements
+          technologiesUsed: exp.technologiesUsed || '',
+          keyAchievements: exp.keyAchievements || ''
         })),
         
         awardsAchievements: formData.awardsAchievements.map(award => ({
           id: award.id,
-          awardName: award.awardName,
-          awardType: award.awardType,
-          issuingOrganization: award.issuingOrganization,
+          awardName: award.awardName || '',
+          awardType: award.awardType || '',
+          issuingOrganization: award.issuingOrganization || '',
           issueDate: formatDateForBackend(award.issueDate),
-          description: award.description
+          description: award.description || ''
         })),
         
         // Availability fields
         availabilityStatus: formData.availabilityStatus || 'IMMEDIATE',
         noticePeriodDays: formData.noticePeriodDays || 30,
         earliestStartDate: formatDateForBackend(formData.earliestStartDate),
-        currentCompany: formData.currentCompany,
+        currentCompany: formData.currentCompany || '',
         currentCompanyTenureMonths: formData.currentCompanyTenureMonths || 0,
         lastCompanyTenureMonths: formData.lastCompanyTenureMonths || 0,
         isWillingToBuyoutNotice: formData.isWillingToBuyoutNotice || false
       };
 
-      console.log('Sending update data to backend:', {
+      console.log('DEBUG: Sending update data:', {
         totalEducations: updateData.educations.length,
         educations: updateData.educations,
         totalCertifications: updateData.certifications.length,
@@ -364,15 +378,17 @@ const CandidateProfileEdit: React.FC = () => {
       });
       
       const response = await CandidateService.updateCandidateProfile(updateData);
-      console.log('Profile update response:', response);
+      console.log('DEBUG: Profile update response:', response);
       
-      toast.success('Profile updated successfully');
+      toast.success('Profile updated successfully!');
       
       // Reload the profile to get updated IDs
       await loadProfile();
       
       // Navigate back to dashboard
-      navigate('/candidate/dashboard');
+      setTimeout(() => {
+        navigate('/candidate/dashboard');
+      }, 1000);
       
     } catch (error: any) {
       console.error('Error updating profile:', error);
@@ -381,7 +397,12 @@ const CandidateProfileEdit: React.FC = () => {
         response: error.response?.data,
         status: error.response?.status
       });
-      toast.error(error.response?.data?.error || error.message || 'Failed to update profile');
+      
+      const errorMessage = error.response?.data?.error || 
+                         error.response?.data?.message || 
+                         error.message || 
+                         'Failed to update profile';
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -391,7 +412,7 @@ const CandidateProfileEdit: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: name === 'totalExperienceYears' ? parseInt(value) || 0 : value
     }));
   };
 
@@ -452,8 +473,8 @@ const CandidateProfileEdit: React.FC = () => {
 
   const handleAddEducation = () => {
     if (newEducation.degree.trim() && newEducation.college.trim()) {
-      // Add new education WITHOUT id (backend will generate it)
       const educationToAdd = {
+        id: undefined, // Important: new items should not have ID
         degree: newEducation.degree,
         college: newEducation.college,
         university: newEducation.university,
@@ -483,7 +504,6 @@ const CandidateProfileEdit: React.FC = () => {
 
   const handleAddCertification = () => {
     if (newCertification.certName.trim() && newCertification.issuer.trim()) {
-      // Add new certification WITHOUT id (backend will generate it)
       const certificationToAdd = {
         certName: newCertification.certName,
         issuer: newCertification.issuer,
@@ -510,6 +530,40 @@ const CandidateProfileEdit: React.FC = () => {
     }
   };
 
+  const handleAddWorkExperience = () => {
+    if (newWorkExperience.company.trim() && newWorkExperience.role.trim()) {
+      const workExpToAdd = {
+        company: newWorkExperience.company,
+        role: newWorkExperience.role,
+        startDate: newWorkExperience.startDate,
+        endDate: newWorkExperience.endDate,
+        responsibilities: newWorkExperience.responsibilities,
+        isCurrent: newWorkExperience.isCurrent || false
+      };
+      
+      console.log('Adding new work experience:', workExpToAdd);
+      
+      setFormData(prev => ({
+        ...prev,
+        workExperiences: [...prev.workExperiences, workExpToAdd]
+      }));
+      
+      // Reset form
+      setNewWorkExperience({
+        company: '',
+        role: '',
+        startDate: '',
+        endDate: '',
+        responsibilities: '',
+        isCurrent: false
+      });
+      
+      toast.success('Work experience added successfully');
+    } else {
+      toast.error('Please fill in company and role fields');
+    }
+  };
+
   const handleNewEducationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setNewEducation(prev => ({
@@ -526,10 +580,19 @@ const CandidateProfileEdit: React.FC = () => {
     }));
   };
 
+  const handleNewWorkExperienceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    setNewWorkExperience(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+    }));
+  };
+
   if (loading && !profile) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <span className="ml-4 text-primary">Loading profile...</span>
       </div>
     );
   }
@@ -680,78 +743,87 @@ const CandidateProfileEdit: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Education Section - FIXED */}
+            {/* Education Section */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <GraduationCap className="h-5 w-5" />
-                  Education
+                  Education {formData.educations.length > 0 && `(${formData.educations.length})`}
                 </CardTitle>
                 <CardDescription>Your educational background</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   {/* List of existing educations */}
-                  {formData.educations.map((edu, index) => (
-                    <div key={index} className="p-4 border rounded-lg space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-semibold">Education #{index + 1}</h4>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem('educations', index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                  {formData.educations.length > 0 ? (
+                    formData.educations.map((edu, index) => (
+                      <div key={`edu-${index}-${edu.id || 'new'}`} className="p-4 border rounded-lg space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold">
+                            Education #{index + 1} {edu.id ? `(ID: ${edu.id})` : '(New)'}
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeItem('educations', index)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div className="md:col-span-2">
+                            <Label>Degree *</Label>
+                            <Input
+                              value={edu.degree}
+                              onChange={(e) => handleNestedChange('educations', index, 'degree', e.target.value)}
+                              placeholder="e.g., Bachelor of Engineering"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label>College *</Label>
+                            <Input
+                              value={edu.college}
+                              onChange={(e) => handleNestedChange('educations', index, 'college', e.target.value)}
+                              placeholder="College name"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label>University</Label>
+                            <Input
+                              value={edu.university}
+                              onChange={(e) => handleNestedChange('educations', index, 'university', e.target.value)}
+                              placeholder="University name"
+                            />
+                          </div>
+                          <div>
+                            <Label>Year of Passing</Label>
+                            <Input
+                              type="number"
+                              value={edu.yearOfPassing}
+                              onChange={(e) => handleNestedChange('educations', index, 'yearOfPassing', parseInt(e.target.value) || new Date().getFullYear())}
+                              placeholder="2020"
+                              min="1900"
+                              max="2099"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-3">
-                        <div>
-                          <Label>Degree *</Label>
-                          <Input
-                            value={edu.degree}
-                            onChange={(e) => handleNestedChange('educations', index, 'degree', e.target.value)}
-                            placeholder="e.g., Bachelor of Engineering"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>College *</Label>
-                          <Input
-                            value={edu.college}
-                            onChange={(e) => handleNestedChange('educations', index, 'college', e.target.value)}
-                            placeholder="College name"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>University</Label>
-                          <Input
-                            value={edu.university}
-                            onChange={(e) => handleNestedChange('educations', index, 'university', e.target.value)}
-                            placeholder="University name"
-                          />
-                        </div>
-                        <div>
-                          <Label>Year of Passing</Label>
-                          <Input
-                            type="number"
-                            value={edu.yearOfPassing}
-                            onChange={(e) => handleNestedChange('educations', index, 'yearOfPassing', parseInt(e.target.value) || new Date().getFullYear())}
-                            placeholder="2020"
-                            min="1900"
-                            max="2099"
-                          />
-                        </div>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center p-8 border rounded-lg">
+                      <GraduationCap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No education added yet</p>
                     </div>
-                  ))}
+                  )}
 
                   {/* Add new education form */}
                   <div className="p-4 border-2 border-dashed rounded-lg space-y-4">
                     <h4 className="font-semibold">Add New Education</h4>
-                    <div className="space-y-3">
-                      <div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="md:col-span-2">
                         <Label htmlFor="newDegree">Degree *</Label>
                         <Input
                           id="newDegree"
@@ -800,6 +872,7 @@ const CandidateProfileEdit: React.FC = () => {
                       variant="outline"
                       onClick={handleAddEducation}
                       className="w-full"
+                      disabled={!newEducation.degree.trim() || !newEducation.college.trim()}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Add Education
@@ -809,64 +882,73 @@ const CandidateProfileEdit: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Certifications Section - FIXED */}
+            {/* Certifications Section */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Award className="h-5 w-5" />
-                  Certifications
+                  Certifications {formData.certifications.length > 0 && `(${formData.certifications.length})`}
                 </CardTitle>
                 <CardDescription>Your professional certifications</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
                   {/* List of existing certifications */}
-                  {formData.certifications.map((cert, index) => (
-                    <div key={index} className="p-4 border rounded-lg space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h4 className="font-semibold">Certification #{index + 1}</h4>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeItem('certifications', index)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                  {formData.certifications.length > 0 ? (
+                    formData.certifications.map((cert, index) => (
+                      <div key={`cert-${index}-${cert.id || 'new'}`} className="p-4 border rounded-lg space-y-4">
+                        <div className="flex justify-between items-center">
+                          <h4 className="font-semibold">
+                            Certification #{index + 1} {cert.id ? `(ID: ${cert.id})` : '(New)'}
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeItem('certifications', index)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                        <div className="space-y-3">
+                          <div>
+                            <Label>Certification Name *</Label>
+                            <Input
+                              value={cert.certName}
+                              onChange={(e) => handleNestedChange('certifications', index, 'certName', e.target.value)}
+                              placeholder="e.g., AWS Certified Solutions Architect"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label>Issuer *</Label>
+                            <Input
+                              value={cert.issuer}
+                              onChange={(e) => handleNestedChange('certifications', index, 'issuer', e.target.value)}
+                              placeholder="Issuing organization"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label>Year Obtained</Label>
+                            <Input
+                              type="number"
+                              value={cert.yearObtained}
+                              onChange={(e) => handleNestedChange('certifications', index, 'yearObtained', parseInt(e.target.value) || new Date().getFullYear())}
+                              placeholder="2023"
+                              min="1900"
+                              max="2099"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-3">
-                        <div>
-                          <Label>Certification Name *</Label>
-                          <Input
-                            value={cert.certName}
-                            onChange={(e) => handleNestedChange('certifications', index, 'certName', e.target.value)}
-                            placeholder="e.g., AWS Certified Solutions Architect"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Issuer *</Label>
-                          <Input
-                            value={cert.issuer}
-                            onChange={(e) => handleNestedChange('certifications', index, 'issuer', e.target.value)}
-                            placeholder="Issuing organization"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label>Year Obtained</Label>
-                          <Input
-                            type="number"
-                            value={cert.yearObtained}
-                            onChange={(e) => handleNestedChange('certifications', index, 'yearObtained', parseInt(e.target.value) || new Date().getFullYear())}
-                            placeholder="2023"
-                            min="1900"
-                            max="2099"
-                          />
-                        </div>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center p-8 border rounded-lg">
+                      <Award className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No certifications added yet</p>
                     </div>
-                  ))}
+                  )}
 
                   {/* Add new certification form */}
                   <div className="p-4 border-2 border-dashed rounded-lg space-y-4">
@@ -911,6 +993,7 @@ const CandidateProfileEdit: React.FC = () => {
                       variant="outline"
                       onClick={handleAddCertification}
                       className="w-full"
+                      disabled={!newCertification.certName.trim() || !newCertification.issuer.trim()}
                     >
                       <Plus className="h-4 w-4 mr-2" />
                       Add Certification
@@ -925,15 +1008,15 @@ const CandidateProfileEdit: React.FC = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Briefcase className="h-5 w-5" />
-                  Skills & Technologies
+                  Skills & Technologies {formData.technologies.length > 0 && `(${formData.technologies.length})`}
                 </CardTitle>
                 <CardDescription>Add your technical skills and proficiency levels</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {/* Add new skill */}
-                  <div className="flex gap-4 mb-4">
-                    <div className="flex-1">
+                  <div className="flex gap-4 mb-4 flex-wrap">
+                    <div className="flex-1 min-w-[200px]">
                       <Label htmlFor="newSkill">Add Skill</Label>
                       <Input
                         id="newSkill"
@@ -981,7 +1064,7 @@ const CandidateProfileEdit: React.FC = () => {
                       />
                     </div>
                     <div className="flex items-end">
-                      <Button type="button" onClick={addSkill} className="h-10">
+                      <Button type="button" onClick={addSkill} className="h-10" disabled={!currentSkill.trim()}>
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
@@ -989,27 +1072,31 @@ const CandidateProfileEdit: React.FC = () => {
 
                   {/* Display skills */}
                   <div className="flex flex-wrap gap-2">
-                    {formData.technologies.map((tech, index) => (
-                      <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                        {tech.techName}
-                        {tech.skillType && (
-                          <span className="text-xs opacity-75">({tech.skillType})</span>
-                        )}
-                        {tech.yearsOfExperience && tech.yearsOfExperience > 0 && (
-                          <span className="text-xs opacity-75">· {tech.yearsOfExperience}y</span>
-                        )}
-                        {tech.lastUsedYear && (
-                          <span className="text-xs opacity-75">· {tech.lastUsedYear}</span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeItem('technologies', index)}
-                          className="ml-1 hover:text-destructive"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
+                    {formData.technologies.length > 0 ? (
+                      formData.technologies.map((tech, index) => (
+                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                          {tech.techName}
+                          {tech.skillType && (
+                            <span className="text-xs opacity-75">({tech.skillType})</span>
+                          )}
+                          {tech.yearsOfExperience && tech.yearsOfExperience > 0 && (
+                            <span className="text-xs opacity-75">· {tech.yearsOfExperience}y</span>
+                          )}
+                          {tech.lastUsedYear && (
+                            <span className="text-xs opacity-75">· {tech.lastUsedYear}</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeItem('technologies', index)}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-muted-foreground">No skills added yet</p>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -1035,6 +1122,27 @@ const CandidateProfileEdit: React.FC = () => {
                 />
               </CardContent>
             </Card>
+          </div>
+
+          {/* Debug Button (Temporary) */}
+          <div className="mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                console.log('Current form data:', {
+                  name: formData.name,
+                  email: formData.email,
+                  educations: formData.educations,
+                  certifications: formData.certifications,
+                  technologies: formData.technologies,
+                  workExperiences: formData.workExperiences
+                });
+                toast.info('Check console for form data');
+              }}
+            >
+              Debug Form Data
+            </Button>
           </div>
 
           {/* Action Buttons */}
