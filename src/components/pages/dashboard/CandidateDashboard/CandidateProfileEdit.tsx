@@ -22,7 +22,12 @@ import {
   Calendar,
   Building,
   Trash2,
-  Edit
+  Edit,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  Package,
+  Trophy
 } from 'lucide-react';
 import { CandidateService } from '@/lib/api/CandidateService';
 import { toast } from 'sonner';
@@ -94,6 +99,10 @@ const CandidateProfileEdit: React.FC = () => {
       teamSize?: number;
       technologiesUsed?: string;
       keyAchievements?: string;
+      noticePeriodServedDays?: number;
+      rehireEligibility: boolean;
+      // UI state for expanding/collapsing
+      isExpanded?: boolean;
     }>,
     
     awardsAchievements: [] as Array<{
@@ -142,7 +151,18 @@ const CandidateProfileEdit: React.FC = () => {
     startDate: '',
     endDate: '',
     responsibilities: '',
-    isCurrent: false
+    isCurrent: false,
+    // Project-related fields
+    projectTitle: '',
+    projectRole: '',
+    clientName: '',
+    teamSize: undefined as number | undefined,
+    technologiesUsed: '',
+    keyAchievements: '',
+    noticePeriodServedDays: undefined as number | undefined,
+    rehireEligibility: true,
+    // UI state
+    showProjectDetails: false,
   });
 
   useEffect(() => {
@@ -170,6 +190,17 @@ const CandidateProfileEdit: React.FC = () => {
           id: e.id,
           degree: e.degree,
           college: e.college
+        })));
+      }
+      
+      if (profileData.workExperiences && profileData.workExperiences.length > 0) {
+        console.log('Work experience data received:', profileData.workExperiences.map((w: any) => ({
+          id: w.id,
+          company: w.company,
+          role: w.role,
+          projectTitle: w.projectTitle,
+          projectRole: w.projectRole,
+          clientName: w.clientName
         })));
       }
       
@@ -227,12 +258,15 @@ const CandidateProfileEdit: React.FC = () => {
           endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : '',
           responsibilities: exp.responsibilities || '',
           isCurrent: exp.isCurrent || false,
-          projectTitle: exp.projectTitle,
-          projectRole: exp.projectRole,
-          clientName: exp.clientName,
+          projectTitle: exp.projectTitle || '',
+          projectRole: exp.projectRole || '',
+          clientName: exp.clientName || '',
           teamSize: exp.teamSize,
-          technologiesUsed: exp.technologiesUsed,
-          keyAchievements: exp.keyAchievements
+          technologiesUsed: exp.technologiesUsed || '',
+          keyAchievements: exp.keyAchievements || '',
+          noticePeriodServedDays: exp.noticePeriodServedDays,
+          rehireEligibility: exp.rehireEligibility !== undefined ? exp.rehireEligibility : true,
+          isExpanded: false
         })) || [],
         
         awardsAchievements: profileData.awardsAchievements?.map((award: any) => ({
@@ -340,7 +374,7 @@ const CandidateProfileEdit: React.FC = () => {
           company: exp.company || '',
           role: exp.role || '',
           startDate: formatDateForBackend(exp.startDate),
-          endDate: formatDateForBackend(exp.endDate),
+          endDate: exp.isCurrent ? null : formatDateForBackend(exp.endDate),
           responsibilities: exp.responsibilities || '',
           isCurrent: exp.isCurrent || false,
           projectTitle: exp.projectTitle || '',
@@ -348,7 +382,9 @@ const CandidateProfileEdit: React.FC = () => {
           clientName: exp.clientName || '',
           teamSize: exp.teamSize,
           technologiesUsed: exp.technologiesUsed || '',
-          keyAchievements: exp.keyAchievements || ''
+          keyAchievements: exp.keyAchievements || '',
+          noticePeriodServedDays: exp.noticePeriodServedDays,
+          rehireEligibility: exp.rehireEligibility !== undefined ? exp.rehireEligibility : true
         })),
         
         awardsAchievements: formData.awardsAchievements.map(award => ({
@@ -371,10 +407,13 @@ const CandidateProfileEdit: React.FC = () => {
       };
 
       console.log('DEBUG: Sending update data:', {
-        totalEducations: updateData.educations.length,
-        educations: updateData.educations,
-        totalCertifications: updateData.certifications.length,
-        certifications: updateData.certifications
+        totalWorkExperiences: updateData.workExperiences.length,
+        workExperiences: updateData.workExperiences.map((exp: any) => ({
+          company: exp.company,
+          projectTitle: exp.projectTitle,
+          projectRole: exp.projectRole,
+          clientName: exp.clientName
+        }))
       });
       
       const response = await CandidateService.updateCandidateProfile(updateData);
@@ -452,6 +491,15 @@ const CandidateProfileEdit: React.FC = () => {
     });
     
     toast.success('Item removed successfully');
+  };
+
+  const toggleWorkExperienceExpand = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      workExperiences: prev.workExperiences.map((exp, i) => 
+        i === index ? { ...exp, isExpanded: !exp.isExpanded } : exp
+      )
+    }));
   };
 
   const addSkill = () => {
@@ -533,12 +581,26 @@ const CandidateProfileEdit: React.FC = () => {
   const handleAddWorkExperience = () => {
     if (newWorkExperience.company.trim() && newWorkExperience.role.trim()) {
       const workExpToAdd = {
-        company: newWorkExperience.company,
-        role: newWorkExperience.role,
+        id: undefined, // New item won't have ID
+        company: newWorkExperience.company.trim(),
+        role: newWorkExperience.role.trim(),
         startDate: newWorkExperience.startDate,
         endDate: newWorkExperience.endDate,
         responsibilities: newWorkExperience.responsibilities,
-        isCurrent: newWorkExperience.isCurrent || false
+        isCurrent: newWorkExperience.isCurrent,
+        
+        // Project-related fields
+        projectTitle: newWorkExperience.projectTitle.trim(),
+        projectRole: newWorkExperience.projectRole.trim(),
+        clientName: newWorkExperience.clientName.trim(),
+        teamSize: newWorkExperience.teamSize,
+        technologiesUsed: newWorkExperience.technologiesUsed,
+        keyAchievements: newWorkExperience.keyAchievements,
+        noticePeriodServedDays: newWorkExperience.noticePeriodServedDays,
+        rehireEligibility: newWorkExperience.rehireEligibility,
+        
+        // UI state
+        isExpanded: false,
       };
       
       console.log('Adding new work experience:', workExpToAdd);
@@ -555,7 +617,16 @@ const CandidateProfileEdit: React.FC = () => {
         startDate: '',
         endDate: '',
         responsibilities: '',
-        isCurrent: false
+        isCurrent: false,
+        projectTitle: '',
+        projectRole: '',
+        clientName: '',
+        teamSize: undefined,
+        technologiesUsed: '',
+        keyAchievements: '',
+        noticePeriodServedDays: undefined,
+        rehireEligibility: true,
+        showProjectDetails: false,
       });
       
       toast.success('Work experience added successfully');
@@ -580,11 +651,23 @@ const CandidateProfileEdit: React.FC = () => {
     }));
   };
 
-  const handleNewWorkExperienceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleNewWorkExperienceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    
     setNewWorkExperience(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
+      [name]: type === 'checkbox' 
+        ? (e.target as HTMLInputElement).checked 
+        : type === 'number'
+        ? (value === '' ? undefined : parseInt(value))
+        : value
+    }));
+  };
+
+  const toggleProjectDetails = () => {
+    setNewWorkExperience(prev => ({
+      ...prev,
+      showProjectDetails: !prev.showProjectDetails
     }));
   };
 
@@ -1097,6 +1180,454 @@ const CandidateProfileEdit: React.FC = () => {
                     ) : (
                       <p className="text-muted-foreground">No skills added yet</p>
                     )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Work Experience Section */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5" />
+                  Work Experience {formData.workExperiences.length > 0 && `(${formData.workExperiences.length})`}
+                </CardTitle>
+                <CardDescription>Your professional work history with project details</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* List of existing work experiences */}
+                  {formData.workExperiences.length > 0 ? (
+                    formData.workExperiences.map((exp, index) => (
+                      <div key={`exp-${index}-${exp.id || 'new'}`} className="border rounded-lg overflow-hidden">
+                        <div className="p-4 bg-muted/30">
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <h4 className="font-semibold text-lg">
+                                {exp.role} at {exp.company}
+                                {exp.isCurrent && (
+                                  <Badge variant="default" className="ml-2">
+                                    Current
+                                  </Badge>
+                                )}
+                              </h4>
+                              <p className="text-sm text-muted-foreground">
+                                {exp.startDate} to {exp.isCurrent ? 'Present' : exp.endDate}
+                                {exp.projectTitle && ` • ${exp.projectTitle}`}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleWorkExperienceExpand(index)}
+                              >
+                                {exp.isExpanded ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                                <span className="ml-1">{exp.isExpanded ? 'Less' : 'More'}</span>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeItem('workExperiences', index)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {exp.isExpanded && (
+                          <div className="p-4 border-t space-y-4">
+                            {/* Basic Work Experience */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <Label>Company *</Label>
+                                <Input
+                                  value={exp.company}
+                                  onChange={(e) => handleNestedChange('workExperiences', index, 'company', e.target.value)}
+                                  placeholder="Company name"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <Label>Role *</Label>
+                                <Input
+                                  value={exp.role}
+                                  onChange={(e) => handleNestedChange('workExperiences', index, 'role', e.target.value)}
+                                  placeholder="Your role"
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <Label>Start Date</Label>
+                                <Input
+                                  type="date"
+                                  value={exp.startDate}
+                                  onChange={(e) => handleNestedChange('workExperiences', index, 'startDate', e.target.value)}
+                                />
+                              </div>
+                              <div>
+                                <Label>End Date</Label>
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    type="date"
+                                    value={exp.endDate}
+                                    onChange={(e) => handleNestedChange('workExperiences', index, 'endDate', e.target.value)}
+                                    disabled={exp.isCurrent}
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      id={`exp-current-${index}`}
+                                      checked={exp.isCurrent}
+                                      onChange={(e) => {
+                                        handleNestedChange('workExperiences', index, 'isCurrent', e.target.checked);
+                                        if (e.target.checked) {
+                                          handleNestedChange('workExperiences', index, 'endDate', '');
+                                        }
+                                      }}
+                                      className="h-4 w-4"
+                                    />
+                                    <Label htmlFor={`exp-current-${index}`} className="text-sm">
+                                      Current
+                                    </Label>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Responsibilities */}
+                            <div>
+                              <Label>Responsibilities</Label>
+                              <Textarea
+                                value={exp.responsibilities}
+                                onChange={(e) => handleNestedChange('workExperiences', index, 'responsibilities', e.target.value)}
+                                placeholder="Describe your responsibilities..."
+                                rows={3}
+                              />
+                            </div>
+                            
+                            {/* Project Details Section */}
+                            <div className="border rounded-lg p-4 bg-muted/30">
+                              <h5 className="font-semibold mb-3 text-primary flex items-center gap-2">
+                                <Package className="h-4 w-4" />
+                                Project Details
+                              </h5>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Project Title</Label>
+                                  <Input
+                                    value={exp.projectTitle}
+                                    onChange={(e) => handleNestedChange('workExperiences', index, 'projectTitle', e.target.value)}
+                                    placeholder="Project name"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Project Role</Label>
+                                  <select
+                                    className="w-full h-10 px-3 py-2 border rounded-md"
+                                    value={exp.projectRole}
+                                    onChange={(e) => handleNestedChange('workExperiences', index, 'projectRole', e.target.value)}
+                                  >
+                                    <option value="">Select role</option>
+                                    <option value="DEVELOPER">Developer</option>
+                                    <option value="TEAM_LEAD">Team Lead</option>
+                                    <option value="ARCHITECT">Architect</option>
+                                    <option value="PROJECT_MANAGER">Project Manager</option>
+                                    <option value="BUSINESS_ANALYST">Business Analyst</option>
+                                    <option value="QA">QA Engineer</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <Label>Client Name</Label>
+                                  <Input
+                                    value={exp.clientName}
+                                    onChange={(e) => handleNestedChange('workExperiences', index, 'clientName', e.target.value)}
+                                    placeholder="Client/organization name"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Team Size</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={exp.teamSize || ''}
+                                    onChange={(e) => handleNestedChange('workExperiences', index, 'teamSize', 
+                                      e.target.value ? parseInt(e.target.value) : undefined)}
+                                    placeholder="Number of team members"
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <Label>Technologies Used</Label>
+                                  <Textarea
+                                    value={exp.technologiesUsed}
+                                    onChange={(e) => handleNestedChange('workExperiences', index, 'technologiesUsed', e.target.value)}
+                                    placeholder="List technologies, frameworks, tools used (comma-separated)"
+                                    rows={2}
+                                  />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <Label>Key Achievements</Label>
+                                  <Textarea
+                                    value={exp.keyAchievements}
+                                    onChange={(e) => handleNestedChange('workExperiences', index, 'keyAchievements', e.target.value)}
+                                    placeholder="Describe key achievements, deliverables, impact..."
+                                    rows={3}
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Notice Period Served (Days)</Label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={exp.noticePeriodServedDays || ''}
+                                    onChange={(e) => handleNestedChange('workExperiences', index, 'noticePeriodServedDays', 
+                                      e.target.value ? parseInt(e.target.value) : undefined)}
+                                    placeholder="e.g., 30, 60, 90"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    id={`exp-rehire-${index}`}
+                                    checked={exp.rehireEligibility}
+                                    onChange={(e) => handleNestedChange('workExperiences', index, 'rehireEligibility', e.target.checked)}
+                                    className="h-4 w-4"
+                                  />
+                                  <Label htmlFor={`exp-rehire-${index}`} className="text-sm">
+                                    Rehire Eligible
+                                  </Label>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center p-8 border rounded-lg">
+                      <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">No work experience added yet</p>
+                    </div>
+                  )}
+
+                  {/* Add New Work Experience Form */}
+                  <div className="border-2 border-dashed rounded-lg p-4 space-y-4">
+                    <h4 className="font-semibold">Add New Work Experience</h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="newCompany">Company *</Label>
+                        <Input
+                          id="newCompany"
+                          name="company"
+                          value={newWorkExperience.company}
+                          onChange={handleNewWorkExperienceChange}
+                          placeholder="Company name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newRole">Role *</Label>
+                        <Input
+                          id="newRole"
+                          name="role"
+                          value={newWorkExperience.role}
+                          onChange={handleNewWorkExperienceChange}
+                          placeholder="Your role"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newStartDate">Start Date</Label>
+                        <Input
+                          id="newStartDate"
+                          name="startDate"
+                          type="date"
+                          value={newWorkExperience.startDate}
+                          onChange={handleNewWorkExperienceChange}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="newEndDate">End Date</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="newEndDate"
+                            name="endDate"
+                            type="date"
+                            value={newWorkExperience.endDate}
+                            onChange={handleNewWorkExperienceChange}
+                            disabled={newWorkExperience.isCurrent}
+                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="newIsCurrent"
+                              name="isCurrent"
+                              checked={newWorkExperience.isCurrent}
+                              onChange={handleNewWorkExperienceChange}
+                              className="h-4 w-4"
+                            />
+                            <Label htmlFor="newIsCurrent" className="text-sm">
+                              Current
+                            </Label>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="md:col-span-2">
+                        <Label htmlFor="newResponsibilities">Responsibilities</Label>
+                        <Textarea
+                          id="newResponsibilities"
+                          name="responsibilities"
+                          value={newWorkExperience.responsibilities}
+                          onChange={handleNewWorkExperienceChange}
+                          placeholder="Describe your responsibilities..."
+                          rows={3}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Toggle for Project Details */}
+                    <div className="pt-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleProjectDetails}
+                        className="flex items-center gap-2"
+                      >
+                        {newWorkExperience.showProjectDetails ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                        {newWorkExperience.showProjectDetails ? 'Hide' : 'Show'} Project Details
+                      </Button>
+                    </div>
+                    
+                    {/* Project Details Form (Conditional) */}
+                    {newWorkExperience.showProjectDetails && (
+                      <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
+                        <h5 className="font-semibold text-primary flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          Project Details
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="newProjectTitle">Project Title</Label>
+                            <Input
+                              id="newProjectTitle"
+                              name="projectTitle"
+                              value={newWorkExperience.projectTitle}
+                              onChange={handleNewWorkExperienceChange}
+                              placeholder="Project name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="newProjectRole">Project Role</Label>
+                            <select
+                              id="newProjectRole"
+                              name="projectRole"
+                              className="w-full h-10 px-3 py-2 border rounded-md"
+                              value={newWorkExperience.projectRole}
+                              onChange={handleNewWorkExperienceChange}
+                            >
+                              <option value="">Select role</option>
+                              <option value="DEVELOPER">Developer</option>
+                              <option value="TEAM_LEAD">Team Lead</option>
+                              <option value="ARCHITECT">Architect</option>
+                              <option value="PROJECT_MANAGER">Project Manager</option>
+                              <option value="BUSINESS_ANALYST">Business Analyst</option>
+                              <option value="QA">QA Engineer</option>
+                            </select>
+                          </div>
+                          <div>
+                            <Label htmlFor="newClientName">Client Name</Label>
+                            <Input
+                              id="newClientName"
+                              name="clientName"
+                              value={newWorkExperience.clientName}
+                              onChange={handleNewWorkExperienceChange}
+                              placeholder="Client/organization name"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="newTeamSize">Team Size</Label>
+                            <Input
+                              id="newTeamSize"
+                              name="teamSize"
+                              type="number"
+                              min="1"
+                              value={newWorkExperience.teamSize || ''}
+                              onChange={handleNewWorkExperienceChange}
+                              placeholder="Number of team members"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label htmlFor="newTechnologiesUsed">Technologies Used</Label>
+                            <Textarea
+                              id="newTechnologiesUsed"
+                              name="technologiesUsed"
+                              value={newWorkExperience.technologiesUsed}
+                              onChange={handleNewWorkExperienceChange}
+                              placeholder="List technologies, frameworks, tools used (comma-separated)"
+                              rows={2}
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <Label htmlFor="newKeyAchievements">Key Achievements</Label>
+                            <Textarea
+                              id="newKeyAchievements"
+                              name="keyAchievements"
+                              value={newWorkExperience.keyAchievements}
+                              onChange={handleNewWorkExperienceChange}
+                              placeholder="Describe key achievements, deliverables, impact..."
+                              rows={3}
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="newNoticePeriodServedDays">Notice Period Served (Days)</Label>
+                            <Input
+                              id="newNoticePeriodServedDays"
+                              name="noticePeriodServedDays"
+                              type="number"
+                              min="0"
+                              value={newWorkExperience.noticePeriodServedDays || ''}
+                              onChange={handleNewWorkExperienceChange}
+                              placeholder="e.g., 30, 60, 90"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id="newRehireEligibility"
+                              name="rehireEligibility"
+                              checked={newWorkExperience.rehireEligibility}
+                              onChange={handleNewWorkExperienceChange}
+                              className="h-4 w-4"
+                            />
+                            <Label htmlFor="newRehireEligibility" className="text-sm">
+                              Rehire Eligible
+                            </Label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddWorkExperience}
+                      className="w-full"
+                      disabled={!newWorkExperience.company.trim() || !newWorkExperience.role.trim()}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Work Experience
+                    </Button>
                   </div>
                 </div>
               </CardContent>
