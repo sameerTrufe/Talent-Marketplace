@@ -250,6 +250,7 @@ const CandidateProfileEdit: React.FC = () => {
           yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
         })) || [],
         
+        // In the loadProfile function, ensure noticePeriodServedDays is loaded
         workExperiences: profileData.workExperiences?.map((exp: any) => ({
           id: exp.id,
           company: exp.company || '',
@@ -261,13 +262,13 @@ const CandidateProfileEdit: React.FC = () => {
           projectTitle: exp.projectTitle || '',
           projectRole: exp.projectRole || '',
           clientName: exp.clientName || '',
-          teamSize: exp.teamSize,
+          teamSize: exp.teamSize || undefined,
           technologiesUsed: exp.technologiesUsed || '',
           keyAchievements: exp.keyAchievements || '',
-          noticePeriodServedDays: exp.noticePeriodServedDays,
+          noticePeriodServedDays: exp.noticePeriodServedDays || undefined, // Add this
           rehireEligibility: exp.rehireEligibility !== undefined ? exp.rehireEligibility : true,
           isExpanded: false
-        })) || [],
+      })) || [],
         
         awardsAchievements: profileData.awardsAchievements?.map((award: any) => ({
           id: award.id,
@@ -369,23 +370,24 @@ const CandidateProfileEdit: React.FC = () => {
           yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
         })),
         
-        workExperiences: formData.workExperiences.map(exp => ({
-          id: exp.id,
-          company: exp.company || '',
-          role: exp.role || '',
-          startDate: formatDateForBackend(exp.startDate),
-          endDate: exp.isCurrent ? null : formatDateForBackend(exp.endDate),
-          responsibilities: exp.responsibilities || '',
-          isCurrent: exp.isCurrent || false,
-          projectTitle: exp.projectTitle || '',
-          projectRole: exp.projectRole || '',
-          clientName: exp.clientName || '',
-          teamSize: exp.teamSize,
-          technologiesUsed: exp.technologiesUsed || '',
-          keyAchievements: exp.keyAchievements || '',
-          noticePeriodServedDays: exp.noticePeriodServedDays,
-          rehireEligibility: exp.rehireEligibility !== undefined ? exp.rehireEligibility : true
-        })),
+        // In handleSubmit function, when preparing work experiences
+workExperiences: formData.workExperiences.map(exp => ({
+    id: exp.id,
+    company: exp.company || '',
+    role: exp.role || '',
+    startDate: formatDateForBackend(exp.startDate),
+    endDate: exp.isCurrent ? null : formatDateForBackend(exp.endDate),
+    responsibilities: exp.responsibilities || '',
+    isCurrent: exp.isCurrent || false,
+    projectTitle: exp.projectTitle || '',
+    projectRole: exp.projectRole || '',
+    clientName: exp.clientName || '',
+    teamSize: exp.teamSize,
+    technologiesUsed: exp.technologiesUsed || '',
+    keyAchievements: exp.keyAchievements || '',
+    noticePeriodServedDays: exp.noticePeriodServedDays || undefined, // Make sure this is included
+    rehireEligibility: exp.rehireEligibility !== undefined ? exp.rehireEligibility : true
+})),
         
         awardsAchievements: formData.awardsAchievements.map(award => ({
           id: award.id,
@@ -1381,17 +1383,20 @@ const CandidateProfileEdit: React.FC = () => {
                                     rows={3}
                                   />
                                 </div>
-                                <div>
-                                  <Label>Notice Period Served (Days)</Label>
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    value={exp.noticePeriodServedDays || ''}
-                                    onChange={(e) => handleNestedChange('workExperiences', index, 'noticePeriodServedDays', 
-                                      e.target.value ? parseInt(e.target.value) : undefined)}
-                                    placeholder="e.g., 30, 60, 90"
-                                  />
-                                </div>
+                                {/* In the Work Experience Section - Project Details */}
+<div>
+    <Label>Notice Period Served (Days)</Label>
+    <Input
+        type="number"
+        min="0"
+        value={exp.noticePeriodServedDays || ''}
+        onChange={(e) => handleNestedChange('workExperiences', index, 'noticePeriodServedDays', 
+            e.target.value ? parseInt(e.target.value) : undefined)}
+        placeholder="e.g., 30, 60, 90"
+    />
+</div>
+
+
                                 <div className="flex items-center gap-2">
                                   <input
                                     type="checkbox"
