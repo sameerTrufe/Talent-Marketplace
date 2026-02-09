@@ -40,6 +40,8 @@ export interface WorkExperience {
   teamSize?: number;
   technologiesUsed?: string;
   keyAchievements?: string;
+  noticePeriodServedDays?: number;
+  rehireEligibility: boolean;
 }
 
 export interface AwardAchievement {
@@ -241,60 +243,75 @@ export const CandidateService = {
     }
   },
 
-  // In CandidateService.tsx, update getCandidateProfileForEdit:
-
-getCandidateProfileForEdit: async () => {
-  try {
-    console.log('CandidateService: Fetching candidate profile for edit...');
-    const response = await apiClient.get('/api/candidate/me/profile/edit');
-    console.log('CandidateService: Edit profile response:', {
-      data: response.data,
-      hasTechnologies: response.data.technologies?.length > 0,
-      hasWorkExperiences: response.data.workExperiences?.length > 0
-    });
-    return response.data;
-  } catch (error: any) {
-    console.error('CandidateService: Error fetching candidate profile for edit:', error);
-    
-    // Enhanced error logging
-    if (error.response) {
-      console.error('Response error:', {
-        status: error.response.status,
-        data: error.response.data,
-        headers: error.response.headers
+  // Get candidate profile for edit (with all relations)
+  getCandidateProfileForEdit: async () => {
+    try {
+      console.log('CandidateService: Fetching candidate profile for edit...');
+      const response = await apiClient.get('/api/candidate/me/profile/edit');
+      console.log('CandidateService: Edit profile response:', {
+        data: response.data,
+        hasTechnologies: response.data.technologies?.length > 0,
+        hasWorkExperiences: response.data.workExperiences?.length > 0,
+        currentCompany: response.data.currentCompany
       });
+      return response.data;
+    } catch (error: any) {
+      console.error('CandidateService: Error fetching candidate profile for edit:', error);
+      
+      // Enhanced error logging
+      if (error.response) {
+        console.error('Response error:', {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers
+        });
+      }
+      
+      // Return fallback structured data
+      return getFallbackStructuredProfile();
     }
-    
-    // Return fallback structured data
-    return getFallbackStructuredProfile();
-  }
-},
+  },
 
   updateCandidateProfile: async (profileData: any) => {
-  try {
-    console.log('CandidateService: Updating candidate profile:', {
-      name: profileData.name,
-      technologiesCount: profileData.technologies?.length,
-      workExperiencesCount: profileData.workExperiences?.length,
-      hasIds: profileData.technologies?.some((t: any) => t.id)
-    });
-    
-    const response = await apiClient.put('/api/candidate/me/profile', profileData);
-    console.log('CandidateService: Profile update successful:', {
-      status: response.status,
-      data: response.data
-    });
-    return response.data;
-  } catch (error: any) {
-    console.error('CandidateService: Error updating candidate profile:', {
-      message: error.message,
-      response: error.response?.data,
-      status: error.response?.status
-    });
-    
-    throw error;
-  }
-},
+    try {
+      console.log('CandidateService: Updating candidate profile:', {
+        name: profileData.name,
+        technologiesCount: profileData.technologies?.length,
+        workExperiencesCount: profileData.workExperiences?.length,
+        currentCompany: profileData.currentCompany,
+        currentCompanyTenureMonths: profileData.currentCompanyTenureMonths,
+        lastCompanyTenureMonths: profileData.lastCompanyTenureMonths,
+        noticePeriodDays: profileData.noticePeriodDays,
+        hasCurrentExperience: profileData.workExperiences?.some((exp: any) => exp.isCurrent)
+      });
+      
+      // Validate work experiences - ensure only one is current
+      const currentWorkExperiences = profileData.workExperiences?.filter((exp: any) => exp.isCurrent) || [];
+      if (currentWorkExperiences.length > 1) {
+        console.warn('Multiple current work experiences detected, fixing...');
+        // Keep only the first one as current
+        profileData.workExperiences = profileData.workExperiences.map((exp: any, index: number) => ({
+          ...exp,
+          isCurrent: index === profileData.workExperiences.findIndex((e: any) => e.isCurrent)
+        }));
+      }
+      
+      const response = await apiClient.put('/api/candidate/me/profile', profileData);
+      console.log('CandidateService: Profile update successful:', {
+        status: response.status,
+        data: response.data
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('CandidateService: Error updating candidate profile:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
+      throw error;
+    }
+  },
 
   // Helper methods for location parsing
   extractCity: (location: string): string => {
@@ -307,6 +324,27 @@ getCandidateProfileForEdit: async () => {
     if (!location) return '';
     const parts = location.split(',').map(p => p.trim());
     return parts[parts.length - 1] || '';
+  },
+
+  // Calculate tenure in months
+  calculateTenureMonths: (startDate: string, endDate: string | null): number => {
+    if (!startDate) return 0;
+    
+    try {
+      const start = new Date(startDate);
+      const end = endDate ? new Date(endDate) : new Date();
+      
+      if (isNaN(start.getTime())) return 0;
+      if (endDate && isNaN(end.getTime())) return 0;
+      
+      const yearsDiff = end.getFullYear() - start.getFullYear();
+      const monthsDiff = end.getMonth() - start.getMonth();
+      
+      return Math.max(0, (yearsDiff * 12) + monthsDiff);
+    } catch (error) {
+      console.error('Error calculating tenure:', error);
+      return 0;
+    }
   },
 
   // Dashboard endpoints

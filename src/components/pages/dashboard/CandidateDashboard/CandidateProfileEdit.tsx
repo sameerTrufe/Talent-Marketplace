@@ -27,7 +27,8 @@ import {
   ChevronUp,
   Users,
   Package,
-  Trophy
+  Trophy,
+  AlertCircle
 } from 'lucide-react';
 import { CandidateService } from '@/lib/api/CandidateService';
 import { toast } from 'sonner';
@@ -39,6 +40,7 @@ const CandidateProfileEdit: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<any>(null);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   
   const [formData, setFormData] = useState({
     // Basic info
@@ -165,9 +167,143 @@ const CandidateProfileEdit: React.FC = () => {
     showProjectDetails: false,
   });
 
+  // Validation state for new work experience
+  const [newWorkExperienceErrors, setNewWorkExperienceErrors] = useState<Record<string, string>>({});
+
   useEffect(() => {
     loadProfile();
   }, []);
+
+  // Helper function to calculate tenure in months
+  const calculateTenureInMonths = (startDateStr: string, endDateStr: string | null): number => {
+    if (!startDateStr) return 0;
+    
+    try {
+      const startDate = new Date(startDateStr);
+      const endDate = endDateStr ? new Date(endDateStr) : new Date();
+      
+      if (isNaN(startDate.getTime())) return 0;
+      if (endDateStr && isNaN(endDate.getTime())) return 0;
+      
+      const yearsDiff = endDate.getFullYear() - startDate.getFullYear();
+      const monthsDiff = endDate.getMonth() - startDate.getMonth();
+      
+      return Math.max(0, (yearsDiff * 12) + monthsDiff);
+    } catch (error) {
+      console.error('Error calculating tenure:', error);
+      return 0;
+    }
+  };
+
+  // Function to handle current work experience toggle
+  const toggleCurrentWorkExperience = (index: number) => {
+    setFormData(prev => {
+      const newWorkExperiences = [...prev.workExperiences];
+      
+      // If checking current, uncheck all others and disable their checkboxes
+      if (!newWorkExperiences[index].isCurrent) {
+        // Uncheck all other work experiences
+        newWorkExperiences.forEach((exp, i) => {
+          newWorkExperiences[i].isCurrent = false;
+          // Clear notice period for non-current companies
+          newWorkExperiences[i].noticePeriodServedDays = undefined;
+        });
+        // Check the current one and clear end date
+        newWorkExperiences[index].isCurrent = true;
+        newWorkExperiences[index].endDate = '';
+        
+        // Update current company
+        const updatedForm = {
+          ...prev,
+          currentCompany: newWorkExperiences[index].company || '',
+          currentCompanyTenureMonths: calculateTenureInMonths(
+            newWorkExperiences[index].startDate, 
+            null
+          ),
+          workExperiences: newWorkExperiences
+        };
+        
+        return updatedForm;
+      } else {
+        // Unchecking current - set a default end date if start date exists
+        newWorkExperiences[index].isCurrent = false;
+        // Clear notice period when not current
+        newWorkExperiences[index].noticePeriodServedDays = undefined;
+        
+        if (newWorkExperiences[index].startDate) {
+          const startDate = new Date(newWorkExperiences[index].startDate);
+          const defaultEndDate = new Date(startDate);
+          defaultEndDate.setMonth(defaultEndDate.getMonth() + 12);
+          newWorkExperiences[index].endDate = defaultEndDate.toISOString().split('T')[0];
+        }
+        
+        // Clear current company if this was the current one
+        const updatedForm = {
+          ...prev,
+          currentCompany: '',
+          currentCompanyTenureMonths: 0,
+          workExperiences: newWorkExperiences
+        };
+        
+        // Find the most recent past experience for last company tenure
+        const pastExperiences = newWorkExperiences
+          .filter(exp => !exp.isCurrent && exp.endDate && exp.startDate)
+          .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
+        
+        if (pastExperiences.length > 0) {
+          const mostRecent = pastExperiences[0];
+          updatedForm.lastCompanyTenureMonths = calculateTenureInMonths(
+            mostRecent.startDate, 
+            mostRecent.endDate
+          );
+        }
+        
+        return updatedForm;
+      }
+    });
+  };
+
+  // Function to handle new work experience current toggle
+  const handleNewWorkExperienceCurrentToggle = () => {
+    setNewWorkExperience(prev => {
+      const newIsCurrent = !prev.isCurrent;
+      
+      // Clear validation errors when toggling
+      setNewWorkExperienceErrors(errors => ({
+        ...errors,
+        endDate: ''
+      }));
+      
+      // Clear notice period if not current
+      const updatedNoticePeriod = newIsCurrent ? prev.noticePeriodServedDays : undefined;
+      
+      // If setting to current and there's already a current in form data
+      if (newIsCurrent && formData.workExperiences.some(exp => exp.isCurrent)) {
+        // Update form data to uncheck existing current
+        setFormData(prevFormData => {
+          const updatedWorkExperiences = prevFormData.workExperiences.map(exp => ({
+            ...exp,
+            isCurrent: false,
+            noticePeriodServedDays: undefined
+          }));
+          
+          return {
+            ...prevFormData,
+            workExperiences: updatedWorkExperiences,
+            currentCompany: '',
+            currentCompanyTenureMonths: 0
+          };
+        });
+      }
+      
+      return {
+        ...prev,
+        isCurrent: newIsCurrent,
+        endDate: newIsCurrent ? '' : prev.endDate,
+        noticePeriodServedDays: updatedNoticePeriod
+      };
+    });
+  };
 
   const loadProfile = async () => {
     try {
@@ -198,6 +334,7 @@ const CandidateProfileEdit: React.FC = () => {
           id: w.id,
           company: w.company,
           role: w.role,
+          isCurrent: w.isCurrent,
           projectTitle: w.projectTitle,
           projectRole: w.projectRole,
           clientName: w.clientName
@@ -207,6 +344,43 @@ const CandidateProfileEdit: React.FC = () => {
       setProfile(profileData);
       
       // Transform the data for form state - PRESERVE IDs
+      const workExperiencesData = profileData.workExperiences?.map((exp: any) => ({
+        id: exp.id,
+        company: exp.company || '',
+        role: exp.role || '',
+        startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
+        endDate: exp.isCurrent ? '' : (exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : ''),
+        responsibilities: exp.responsibilities || '',
+        isCurrent: exp.isCurrent || false,
+        projectTitle: exp.projectTitle || '',
+        projectRole: exp.projectRole || '',
+        clientName: exp.clientName || '',
+        teamSize: exp.teamSize || undefined,
+        technologiesUsed: exp.technologiesUsed || '',
+        keyAchievements: exp.keyAchievements || '',
+        // Only show notice period for current company
+        noticePeriodServedDays: exp.isCurrent ? (exp.noticePeriodServedDays || undefined) : undefined,
+        rehireEligibility: exp.rehireEligibility !== undefined ? exp.rehireEligibility : true,
+        isExpanded: false
+      })) || [];
+      
+      // Find current work experience
+      const currentWorkExp = workExperiencesData.find(exp => exp.isCurrent);
+      const pastWorkExps = workExperiencesData
+        .filter(exp => !exp.isCurrent && exp.endDate)
+        .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
+      
+      const mostRecentPastExp = pastWorkExps[0];
+      
+      // Calculate tenures
+      const currentCompanyTenureMonths = currentWorkExp 
+        ? calculateTenureInMonths(currentWorkExp.startDate, null)
+        : profileData.currentCompanyTenureMonths || 0;
+      
+      const lastCompanyTenureMonths = mostRecentPastExp
+        ? calculateTenureInMonths(mostRecentPastExp.startDate, mostRecentPastExp.endDate)
+        : profileData.lastCompanyTenureMonths || 0;
+      
       setFormData({
         name: profileData.name || '',
         email: profileData.email || '',
@@ -250,25 +424,7 @@ const CandidateProfileEdit: React.FC = () => {
           yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
         })) || [],
         
-        // In the loadProfile function, ensure noticePeriodServedDays is loaded
-        workExperiences: profileData.workExperiences?.map((exp: any) => ({
-          id: exp.id,
-          company: exp.company || '',
-          role: exp.role || '',
-          startDate: exp.startDate ? new Date(exp.startDate).toISOString().split('T')[0] : '',
-          endDate: exp.endDate ? new Date(exp.endDate).toISOString().split('T')[0] : '',
-          responsibilities: exp.responsibilities || '',
-          isCurrent: exp.isCurrent || false,
-          projectTitle: exp.projectTitle || '',
-          projectRole: exp.projectRole || '',
-          clientName: exp.clientName || '',
-          teamSize: exp.teamSize || undefined,
-          technologiesUsed: exp.technologiesUsed || '',
-          keyAchievements: exp.keyAchievements || '',
-          noticePeriodServedDays: exp.noticePeriodServedDays || undefined, // Add this
-          rehireEligibility: exp.rehireEligibility !== undefined ? exp.rehireEligibility : true,
-          isExpanded: false
-      })) || [],
+        workExperiences: workExperiencesData,
         
         awardsAchievements: profileData.awardsAchievements?.map((award: any) => ({
           id: award.id,
@@ -283,14 +439,13 @@ const CandidateProfileEdit: React.FC = () => {
         availabilityStatus: profileData.availabilityStatus || 'IMMEDIATE',
         noticePeriodDays: profileData.noticePeriodDays || 30,
         earliestStartDate: profileData.earliestStartDate || '',
-        currentCompany: profileData.currentCompany || '',
-        currentCompanyTenureMonths: profileData.currentCompanyTenureMonths || 0,
-        lastCompanyTenureMonths: profileData.lastCompanyTenureMonths || 0,
+        currentCompany: currentWorkExp?.company || profileData.currentCompany || '',
+        currentCompanyTenureMonths: currentCompanyTenureMonths,
+        lastCompanyTenureMonths: lastCompanyTenureMonths,
         isWillingToBuyoutNotice: profileData.isWillingToBuyoutNotice || false
       });
       
-      console.log('Form data set successfully. Education count:', 
-        profileData.educations?.length || 0);
+      console.log('Form data set successfully. Current company:', currentWorkExp?.company || profileData.currentCompany);
       
     } catch (error: any) {
       console.error('Error loading profile:', error);
@@ -311,21 +466,107 @@ const CandidateProfileEdit: React.FC = () => {
     }
   };
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    // Basic validation
+    if (!formData.name.trim()) {
+      errors.name = 'Name is required';
+    }
+    
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Email is invalid';
+    }
+    
+    // Work experience validation
+    formData.workExperiences.forEach((exp, index) => {
+      if (!exp.isCurrent && !exp.endDate) {
+        errors[`workExperience_${index}_endDate`] = `End date is required for "${exp.company}" (not current)`;
+      }
+      if (exp.startDate && exp.endDate && !exp.isCurrent) {
+        const startDate = new Date(exp.startDate);
+        const endDate = new Date(exp.endDate);
+        if (endDate < startDate) {
+          errors[`workExperience_${index}_dateRange`] = `End date cannot be before start date for "${exp.company}"`;
+        }
+      }
+    });
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateNewWorkExperience = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!newWorkExperience.company.trim()) {
+      errors.company = 'Company is required';
+    }
+    
+    if (!newWorkExperience.role.trim()) {
+      errors.role = 'Role is required';
+    }
+    
+    if (!newWorkExperience.isCurrent && !newWorkExperience.endDate) {
+      errors.endDate = 'End date is required for non-current work experience';
+    }
+    
+    // Validate date range if both dates exist
+    if (newWorkExperience.startDate && newWorkExperience.endDate && !newWorkExperience.isCurrent) {
+      const startDate = new Date(newWorkExperience.startDate);
+      const endDate = new Date(newWorkExperience.endDate);
+      if (endDate < startDate) {
+        errors.dateRange = 'End date cannot be before start date';
+      }
+    }
+    
+    setNewWorkExperienceErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
     try {
+      // Clear previous errors
+      setFormErrors({});
+      
+      // Validate form
+      if (!validateForm()) {
+        toast.error('Please fix the validation errors before saving');
+        setSaving(false);
+        return;
+      }
+
       console.log('DEBUG: Current form data:', {
         name: formData.name,
         email: formData.email,
         educationsCount: formData.educations.length,
-        educations: formData.educations,
-        certificationsCount: formData.certifications.length,
-        certifications: formData.certifications,
         workExperiencesCount: formData.workExperiences.length,
-        technologiesCount: formData.technologies.length
+        currentCompany: formData.currentCompany,
+        currentTenure: formData.currentCompanyTenureMonths,
+        lastTenure: formData.lastCompanyTenureMonths
       });
+
+      // Calculate current company from current work experience
+      const currentWorkExp = formData.workExperiences.find(exp => exp.isCurrent);
+      const pastWorkExps = formData.workExperiences
+        .filter(exp => !exp.isCurrent && exp.endDate)
+        .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
+      
+      const mostRecentPastExp = pastWorkExps[0];
+      
+      // Calculate tenures
+      const currentCompanyTenureMonths = currentWorkExp 
+        ? calculateTenureInMonths(currentWorkExp.startDate, null)
+        : formData.currentCompanyTenureMonths || 0;
+      
+      const lastCompanyTenureMonths = mostRecentPastExp
+        ? calculateTenureInMonths(mostRecentPastExp.startDate, mostRecentPastExp.endDate)
+        : formData.lastCompanyTenureMonths || 0;
 
       // Prepare structured data for API
       const updateData = {
@@ -370,24 +611,24 @@ const CandidateProfileEdit: React.FC = () => {
           yearOfPassing: edu.yearOfPassing || new Date().getFullYear()
         })),
         
-        // In handleSubmit function, when preparing work experiences
-workExperiences: formData.workExperiences.map(exp => ({
-    id: exp.id,
-    company: exp.company || '',
-    role: exp.role || '',
-    startDate: formatDateForBackend(exp.startDate),
-    endDate: exp.isCurrent ? null : formatDateForBackend(exp.endDate),
-    responsibilities: exp.responsibilities || '',
-    isCurrent: exp.isCurrent || false,
-    projectTitle: exp.projectTitle || '',
-    projectRole: exp.projectRole || '',
-    clientName: exp.clientName || '',
-    teamSize: exp.teamSize,
-    technologiesUsed: exp.technologiesUsed || '',
-    keyAchievements: exp.keyAchievements || '',
-    noticePeriodServedDays: exp.noticePeriodServedDays || undefined, // Make sure this is included
-    rehireEligibility: exp.rehireEligibility !== undefined ? exp.rehireEligibility : true
-})),
+        workExperiences: formData.workExperiences.map(exp => ({
+          id: exp.id,
+          company: exp.company || '',
+          role: exp.role || '',
+          startDate: formatDateForBackend(exp.startDate),
+          endDate: exp.isCurrent ? null : formatDateForBackend(exp.endDate),
+          responsibilities: exp.responsibilities || '',
+          isCurrent: exp.isCurrent || false,
+          projectTitle: exp.projectTitle || '',
+          projectRole: exp.projectRole || '',
+          clientName: exp.clientName || '',
+          teamSize: exp.teamSize,
+          technologiesUsed: exp.technologiesUsed || '',
+          keyAchievements: exp.keyAchievements || '',
+          // Only send notice period for current company
+          noticePeriodServedDays: exp.isCurrent ? (exp.noticePeriodServedDays || undefined) : undefined,
+          rehireEligibility: exp.rehireEligibility !== undefined ? exp.rehireEligibility : true
+        })),
         
         awardsAchievements: formData.awardsAchievements.map(award => ({
           id: award.id,
@@ -398,24 +639,22 @@ workExperiences: formData.workExperiences.map(exp => ({
           description: award.description || ''
         })),
         
-        // Availability fields
+        // Availability fields - Set from form data
         availabilityStatus: formData.availabilityStatus || 'IMMEDIATE',
         noticePeriodDays: formData.noticePeriodDays || 30,
         earliestStartDate: formatDateForBackend(formData.earliestStartDate),
-        currentCompany: formData.currentCompany || '',
-        currentCompanyTenureMonths: formData.currentCompanyTenureMonths || 0,
-        lastCompanyTenureMonths: formData.lastCompanyTenureMonths || 0,
+        currentCompany: currentWorkExp?.company || formData.currentCompany || '',
+        currentCompanyTenureMonths: currentCompanyTenureMonths,
+        lastCompanyTenureMonths: lastCompanyTenureMonths,
         isWillingToBuyoutNotice: formData.isWillingToBuyoutNotice || false
       };
 
       console.log('DEBUG: Sending update data:', {
         totalWorkExperiences: updateData.workExperiences.length,
-        workExperiences: updateData.workExperiences.map((exp: any) => ({
-          company: exp.company,
-          projectTitle: exp.projectTitle,
-          projectRole: exp.projectRole,
-          clientName: exp.clientName
-        }))
+        currentWorkExperience: updateData.workExperiences.find(exp => exp.isCurrent),
+        currentCompanySent: updateData.currentCompany,
+        currentTenureSent: updateData.currentCompanyTenureMonths,
+        lastTenureSent: updateData.lastCompanyTenureMonths
       });
       
       const response = await CandidateService.updateCandidateProfile(updateData);
@@ -455,6 +694,15 @@ workExperiences: formData.workExperiences.map(exp => ({
       ...prev,
       [name]: name === 'totalExperienceYears' ? parseInt(value) || 0 : value
     }));
+    
+    // Clear error for this field
+    if (formErrors[name]) {
+      setFormErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
@@ -465,12 +713,69 @@ workExperiences: formData.workExperiences.map(exp => ({
   };
 
   const handleNestedChange = (section: string, index: number, field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: prev[section].map((item: any, i: number) => 
-        i === index ? { ...item, [field]: value } : item
-      )
-    }));
+    setFormData(prev => {
+      const newArray = [...prev[section]];
+      
+      // Update the specific item
+      newArray[index] = { ...newArray[index], [field]: value };
+      
+      const updatedData = {
+        ...prev,
+        [section]: newArray
+      };
+      
+      // Special handling for work experiences
+      if (section === 'workExperiences') {
+        const exp = newArray[index];
+        
+        // Clear validation errors for this field
+        if (formErrors[`workExperience_${index}_${field}`]) {
+          setFormErrors(prevErrors => {
+            const newErrors = { ...prevErrors };
+            delete newErrors[`workExperience_${index}_${field}`];
+            delete newErrors[`workExperience_${index}_dateRange`];
+            return newErrors;
+          });
+        }
+        
+        // Clear notice period when marking as non-current
+        if (field === 'isCurrent' && value === false) {
+          newArray[index].noticePeriodServedDays = undefined;
+        }
+        
+        // If company field changes for current work experience, update currentCompany
+        if (field === 'company' && exp.isCurrent) {
+          updatedData.currentCompany = value;
+        }
+        
+        // If isCurrent changes, handle it
+        if (field === 'isCurrent') {
+          if (value === true) {
+            // Uncheck all other work experiences and clear their notice periods
+            updatedData.workExperiences = newArray.map((expItem, i) => ({
+              ...expItem,
+              isCurrent: i === index,
+              noticePeriodServedDays: i === index ? expItem.noticePeriodServedDays : undefined
+            }));
+            
+            // Update current company and tenure
+            updatedData.currentCompany = exp.company || '';
+            updatedData.currentCompanyTenureMonths = calculateTenureInMonths(exp.startDate, null);
+          } else {
+            // Clearing current - clear the current company and notice period
+            updatedData.currentCompany = '';
+            updatedData.currentCompanyTenureMonths = 0;
+          }
+        }
+        
+        // If start date changes for current work experience, recalculate tenure
+        if (field === 'startDate' && exp.isCurrent) {
+          updatedData.currentCompanyTenureMonths = calculateTenureInMonths(value, null);
+        }
+      }
+      
+      return updatedData;
+    });
   };
 
   const addItem = (section: string, defaultValue: any) => {
@@ -482,6 +787,18 @@ workExperiences: formData.workExperiences.map(exp => ({
 
   const removeItem = (section: string, index: number) => {
     console.log(`Removing item from ${section} at index ${index}`);
+    
+    // If removing current work experience, clear current company
+    if (section === 'workExperiences') {
+      const exp = formData.workExperiences[index];
+      if (exp.isCurrent) {
+        setFormData(prev => ({
+          ...prev,
+          currentCompany: '',
+          currentCompanyTenureMonths: 0
+        }));
+      }
+    }
     
     setFormData(prev => {
       const newArray = [...prev[section]];
@@ -581,13 +898,19 @@ workExperiences: formData.workExperiences.map(exp => ({
   };
 
   const handleAddWorkExperience = () => {
+    // Validate new work experience
+    if (!validateNewWorkExperience()) {
+      toast.error('Please fix the errors in the work experience form');
+      return;
+    }
+
     if (newWorkExperience.company.trim() && newWorkExperience.role.trim()) {
       const workExpToAdd = {
         id: undefined, // New item won't have ID
         company: newWorkExperience.company.trim(),
         role: newWorkExperience.role.trim(),
         startDate: newWorkExperience.startDate,
-        endDate: newWorkExperience.endDate,
+        endDate: newWorkExperience.isCurrent ? '' : newWorkExperience.endDate,
         responsibilities: newWorkExperience.responsibilities,
         isCurrent: newWorkExperience.isCurrent,
         
@@ -598,7 +921,8 @@ workExperiences: formData.workExperiences.map(exp => ({
         teamSize: newWorkExperience.teamSize,
         technologiesUsed: newWorkExperience.technologiesUsed,
         keyAchievements: newWorkExperience.keyAchievements,
-        noticePeriodServedDays: newWorkExperience.noticePeriodServedDays,
+        // Only set notice period for current company
+        noticePeriodServedDays: newWorkExperience.isCurrent ? newWorkExperience.noticePeriodServedDays : undefined,
         rehireEligibility: newWorkExperience.rehireEligibility,
         
         // UI state
@@ -607,12 +931,36 @@ workExperiences: formData.workExperiences.map(exp => ({
       
       console.log('Adding new work experience:', workExpToAdd);
       
+      // Handle current work experience logic
+      let updatedWorkExperiences = [...formData.workExperiences];
+      let updatedCurrentCompany = formData.currentCompany;
+      let updatedCurrentTenure = formData.currentCompanyTenureMonths;
+      
+      if (newWorkExperience.isCurrent) {
+        // Uncheck all existing work experiences and clear their notice periods
+        updatedWorkExperiences = updatedWorkExperiences.map(exp => ({
+          ...exp,
+          isCurrent: false,
+          noticePeriodServedDays: undefined
+        }));
+        
+        // Set new one as current
+        updatedCurrentCompany = newWorkExperience.company.trim();
+        updatedCurrentTenure = calculateTenureInMonths(newWorkExperience.startDate, null);
+      }
+      
+      // Add the new work experience
+      updatedWorkExperiences.push(workExpToAdd);
+      
+      // Update form data
       setFormData(prev => ({
         ...prev,
-        workExperiences: [...prev.workExperiences, workExpToAdd]
+        workExperiences: updatedWorkExperiences,
+        currentCompany: updatedCurrentCompany,
+        currentCompanyTenureMonths: updatedCurrentTenure
       }));
       
-      // Reset form
+      // Reset form and errors
       setNewWorkExperience({
         company: '',
         role: '',
@@ -630,6 +978,7 @@ workExperiences: formData.workExperiences.map(exp => ({
         rehireEligibility: true,
         showProjectDetails: false,
       });
+      setNewWorkExperienceErrors({});
       
       toast.success('Work experience added successfully');
     } else {
@@ -656,14 +1005,26 @@ workExperiences: formData.workExperiences.map(exp => ({
   const handleNewWorkExperienceChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     
+    const newValue = type === 'checkbox' 
+      ? (e.target as HTMLInputElement).checked 
+      : type === 'number'
+      ? (value === '' ? undefined : parseInt(value))
+      : value;
+    
     setNewWorkExperience(prev => ({
       ...prev,
-      [name]: type === 'checkbox' 
-        ? (e.target as HTMLInputElement).checked 
-        : type === 'number'
-        ? (value === '' ? undefined : parseInt(value))
-        : value
+      [name]: newValue
     }));
+    
+    // Clear validation error for this field
+    if (newWorkExperienceErrors[name] || newWorkExperienceErrors.dateRange) {
+      setNewWorkExperienceErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        delete newErrors.dateRange;
+        return newErrors;
+      });
+    }
   };
 
   const toggleProjectDetails = () => {
@@ -672,6 +1033,9 @@ workExperiences: formData.workExperiences.map(exp => ({
       showProjectDetails: !prev.showProjectDetails
     }));
   };
+
+  // Check if there's already a current work experience
+  const hasCurrentWorkExperience = formData.workExperiences.some(exp => exp.isCurrent);
 
   if (loading && !profile) {
     return (
@@ -695,7 +1059,22 @@ workExperiences: formData.workExperiences.map(exp => ({
           <p className="text-muted-foreground">Update your personal and professional information</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        {/* Form Validation Errors */}
+        {Object.keys(formErrors).length > 0 && (
+          <div className="mb-6 p-4 border border-red-200 bg-red-50 rounded-lg">
+            <div className="flex items-center gap-2 text-red-700 mb-2">
+              <AlertCircle className="h-5 w-5" />
+              <h3 className="font-semibold">Please fix the following errors:</h3>
+            </div>
+            <ul className="list-disc list-inside text-sm text-red-600 space-y-1">
+              {Object.entries(formErrors).map(([key, message]) => (
+                <li key={key}>{message}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} noValidate>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Personal Information */}
             <Card>
@@ -715,8 +1094,12 @@ workExperiences: formData.workExperiences.map(exp => ({
                     value={formData.name}
                     onChange={handleChange}
                     placeholder="John Doe"
+                    className={formErrors.name ? 'border-red-500' : ''}
                     required
                   />
+                  {formErrors.name && (
+                    <p className="text-sm text-red-500 mt-1">{formErrors.name}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="email">Email *</Label>
@@ -727,8 +1110,12 @@ workExperiences: formData.workExperiences.map(exp => ({
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="john@example.com"
+                    className={formErrors.email ? 'border-red-500' : ''}
                     required
                   />
+                  {formErrors.email && (
+                    <p className="text-sm text-red-500 mt-1">{formErrors.email}</p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone Number</Label>
@@ -824,6 +1211,18 @@ workExperiences: formData.workExperiences.map(exp => ({
                       <SelectItem value="NOT_AVAILABLE">Not Available</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div>
+                  <Label htmlFor="noticePeriodDays">Notice Period (Days)</Label>
+                  <Input
+                    id="noticePeriodDays"
+                    name="noticePeriodDays"
+                    type="number"
+                    value={formData.noticePeriodDays}
+                    onChange={handleChange}
+                    placeholder="30"
+                    min="0"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -1246,6 +1645,18 @@ workExperiences: formData.workExperiences.map(exp => ({
                         
                         {exp.isExpanded && (
                           <div className="p-4 border-t space-y-4">
+                            {/* Validation errors for this work experience */}
+                            {(formErrors[`workExperience_${index}_endDate`] || formErrors[`workExperience_${index}_dateRange`]) && (
+                              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-center gap-2 text-red-700">
+                                  <AlertCircle className="h-4 w-4" />
+                                  <span className="text-sm font-medium">
+                                    {formErrors[`workExperience_${index}_endDate`] || formErrors[`workExperience_${index}_dateRange`]}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                            
                             {/* Basic Work Experience */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
@@ -1276,28 +1687,37 @@ workExperiences: formData.workExperiences.map(exp => ({
                               </div>
                               <div>
                                 <Label>End Date</Label>
-                                <div className="flex items-center gap-2">
+                                <div className="space-y-2">
                                   <Input
                                     type="date"
                                     value={exp.endDate}
                                     onChange={(e) => handleNestedChange('workExperiences', index, 'endDate', e.target.value)}
                                     disabled={exp.isCurrent}
+                                    className={formErrors[`workExperience_${index}_endDate`] ? 'border-red-500' : ''}
                                   />
+                                  {!exp.isCurrent && !exp.endDate && (
+                                    <p className="text-xs text-red-500">
+                                      End date is required for non-current work experience
+                                    </p>
+                                  )}
                                   <div className="flex items-center gap-2">
                                     <input
                                       type="checkbox"
                                       id={`exp-current-${index}`}
                                       checked={exp.isCurrent}
                                       onChange={(e) => {
-                                        handleNestedChange('workExperiences', index, 'isCurrent', e.target.checked);
-                                        if (e.target.checked) {
-                                          handleNestedChange('workExperiences', index, 'endDate', '');
+                                        if (e.target.checked || exp.isCurrent) {
+                                          toggleCurrentWorkExperience(index);
                                         }
                                       }}
                                       className="h-4 w-4"
+                                      disabled={hasCurrentWorkExperience && !exp.isCurrent}
                                     />
                                     <Label htmlFor={`exp-current-${index}`} className="text-sm">
                                       Current
+                                      {hasCurrentWorkExperience && !exp.isCurrent && (
+                                        <span className="text-xs text-muted-foreground ml-1">(Only one allowed)</span>
+                                      )}
                                     </Label>
                                   </div>
                                 </div>
@@ -1383,20 +1803,20 @@ workExperiences: formData.workExperiences.map(exp => ({
                                     rows={3}
                                   />
                                 </div>
-                                {/* In the Work Experience Section - Project Details */}
-<div>
-    <Label>Notice Period Served (Days)</Label>
-    <Input
-        type="number"
-        min="0"
-        value={exp.noticePeriodServedDays || ''}
-        onChange={(e) => handleNestedChange('workExperiences', index, 'noticePeriodServedDays', 
-            e.target.value ? parseInt(e.target.value) : undefined)}
-        placeholder="e.g., 30, 60, 90"
-    />
-</div>
-
-
+                                {/* FIX: Only show Notice Period Served for current company */}
+                                {exp.isCurrent && (
+                                  <div>
+                                    <Label>Notice Period Served (Days)</Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      value={exp.noticePeriodServedDays || ''}
+                                      onChange={(e) => handleNestedChange('workExperiences', index, 'noticePeriodServedDays', 
+                                        e.target.value ? parseInt(e.target.value) : undefined)}
+                                      placeholder="e.g., 30, 60, 90"
+                                    />
+                                  </div>
+                                )}
                                 <div className="flex items-center gap-2">
                                   <input
                                     type="checkbox"
@@ -1426,6 +1846,21 @@ workExperiences: formData.workExperiences.map(exp => ({
                   <div className="border-2 border-dashed rounded-lg p-4 space-y-4">
                     <h4 className="font-semibold">Add New Work Experience</h4>
                     
+                    {/* Validation errors for new work experience */}
+                    {Object.keys(newWorkExperienceErrors).length > 0 && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="flex items-center gap-2 text-red-700 mb-2">
+                          <AlertCircle className="h-4 w-4" />
+                          <span className="text-sm font-medium">Please fix the following:</span>
+                        </div>
+                        <ul className="list-disc list-inside text-xs text-red-600 space-y-1">
+                          {Object.entries(newWorkExperienceErrors).map(([key, message]) => (
+                            <li key={key}>{message}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="newCompany">Company *</Label>
@@ -1435,7 +1870,11 @@ workExperiences: formData.workExperiences.map(exp => ({
                           value={newWorkExperience.company}
                           onChange={handleNewWorkExperienceChange}
                           placeholder="Company name"
+                          className={newWorkExperienceErrors.company ? 'border-red-500' : ''}
                         />
+                        {newWorkExperienceErrors.company && (
+                          <p className="text-xs text-red-500 mt-1">{newWorkExperienceErrors.company}</p>
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="newRole">Role *</Label>
@@ -1445,7 +1884,11 @@ workExperiences: formData.workExperiences.map(exp => ({
                           value={newWorkExperience.role}
                           onChange={handleNewWorkExperienceChange}
                           placeholder="Your role"
+                          className={newWorkExperienceErrors.role ? 'border-red-500' : ''}
                         />
+                        {newWorkExperienceErrors.role && (
+                          <p className="text-xs text-red-500 mt-1">{newWorkExperienceErrors.role}</p>
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="newStartDate">Start Date</Label>
@@ -1459,7 +1902,7 @@ workExperiences: formData.workExperiences.map(exp => ({
                       </div>
                       <div>
                         <Label htmlFor="newEndDate">End Date</Label>
-                        <div className="flex items-center gap-2">
+                        <div className="space-y-2">
                           <Input
                             id="newEndDate"
                             name="endDate"
@@ -1467,18 +1910,34 @@ workExperiences: formData.workExperiences.map(exp => ({
                             value={newWorkExperience.endDate}
                             onChange={handleNewWorkExperienceChange}
                             disabled={newWorkExperience.isCurrent}
+                            className={newWorkExperienceErrors.endDate || newWorkExperienceErrors.dateRange ? 'border-red-500' : ''}
                           />
+                          {!newWorkExperience.isCurrent && (
+                            <p className="text-xs text-muted-foreground">
+                              Required for non-current work experience
+                            </p>
+                          )}
+                          {newWorkExperienceErrors.endDate && (
+                            <p className="text-xs text-red-500">{newWorkExperienceErrors.endDate}</p>
+                          )}
+                          {newWorkExperienceErrors.dateRange && (
+                            <p className="text-xs text-red-500">{newWorkExperienceErrors.dateRange}</p>
+                          )}
                           <div className="flex items-center gap-2">
                             <input
                               type="checkbox"
                               id="newIsCurrent"
                               name="isCurrent"
                               checked={newWorkExperience.isCurrent}
-                              onChange={handleNewWorkExperienceChange}
+                              onChange={handleNewWorkExperienceCurrentToggle}
                               className="h-4 w-4"
+                              disabled={hasCurrentWorkExperience && !newWorkExperience.isCurrent}
                             />
                             <Label htmlFor="newIsCurrent" className="text-sm">
                               Current
+                              {hasCurrentWorkExperience && !newWorkExperience.isCurrent && (
+                                <span className="text-xs text-muted-foreground ml-1">(Only one allowed)</span>
+                              )}
                             </Label>
                           </div>
                         </div>
@@ -1594,18 +2053,21 @@ workExperiences: formData.workExperiences.map(exp => ({
                               rows={3}
                             />
                           </div>
-                          <div>
-                            <Label htmlFor="newNoticePeriodServedDays">Notice Period Served (Days)</Label>
-                            <Input
-                              id="newNoticePeriodServedDays"
-                              name="noticePeriodServedDays"
-                              type="number"
-                              min="0"
-                              value={newWorkExperience.noticePeriodServedDays || ''}
-                              onChange={handleNewWorkExperienceChange}
-                              placeholder="e.g., 30, 60, 90"
-                            />
-                          </div>
+                          {/* FIX: Only show Notice Period Served for current company */}
+                          {newWorkExperience.isCurrent && (
+                            <div>
+                              <Label htmlFor="newNoticePeriodServedDays">Notice Period Served (Days)</Label>
+                              <Input
+                                id="newNoticePeriodServedDays"
+                                name="noticePeriodServedDays"
+                                type="number"
+                                min="0"
+                                value={newWorkExperience.noticePeriodServedDays || ''}
+                                onChange={handleNewWorkExperienceChange}
+                                placeholder="e.g., 30, 60, 90"
+                              />
+                            </div>
+                          )}
                           <div className="flex items-center gap-2">
                             <input
                               type="checkbox"
@@ -1660,6 +2122,30 @@ workExperiences: formData.workExperiences.map(exp => ({
             </Card>
           </div>
 
+          {/* Current Company Info Display */}
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <h3 className="font-semibold text-lg mb-2">Current Company Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label>Current Company</Label>
+                <p className="font-medium">{formData.currentCompany || 'Not set'}</p>
+                <p className="text-sm text-muted-foreground">
+                  {formData.workExperiences.some(exp => exp.isCurrent) 
+                    ? 'Automatically set from current work experience'
+                    : 'Set a work experience as "Current" to auto-populate'}
+                </p>
+              </div>
+              <div>
+                <Label>Current Company Tenure</Label>
+                <p className="font-medium">{formData.currentCompanyTenureMonths} months</p>
+              </div>
+              <div>
+                <Label>Last Company Tenure</Label>
+                <p className="font-medium">{formData.lastCompanyTenureMonths} months</p>
+              </div>
+            </div>
+          </div>
+
           {/* Debug Button (Temporary) */}
           <div className="mt-4">
             <Button
@@ -1672,7 +2158,11 @@ workExperiences: formData.workExperiences.map(exp => ({
                   educations: formData.educations,
                   certifications: formData.certifications,
                   technologies: formData.technologies,
-                  workExperiences: formData.workExperiences
+                  workExperiences: formData.workExperiences,
+                  currentCompany: formData.currentCompany,
+                  currentTenure: formData.currentCompanyTenureMonths,
+                  lastTenure: formData.lastCompanyTenureMonths,
+                  hasCurrentExperience: formData.workExperiences.some(exp => exp.isCurrent)
                 });
                 toast.info('Check console for form data');
               }}

@@ -540,7 +540,7 @@ export function ResourceProfile() {
 
             <div className="border-t mt-6 pt-6">
               <Button size="lg" className="w-full md:w-auto" onClick={handleHire}>
-                Hire {candidate.name?.split(' ')[0]} - {candidate.rate}
+                {candidate.availability ? `${candidate.name} is available for hire` : `${candidate.name} is not available`} - Hire {candidate.name?.split(' ')[0]}
               </Button>
             </div>
           </Card>
